@@ -127,6 +127,7 @@ server.tool(
           text: z.string().describe("The replacement text"),
         }),
       )
+      .min(1)
       .describe("Array of text node IDs and their replacement texts"),
   },
   async ({ nodeId, text }: any) => {

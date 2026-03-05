@@ -226,7 +226,7 @@ server.tool(
   "delete_multiple_nodes",
   "Delete multiple nodes from Figma at once",
   {
-    nodeIds: z.array(z.string()).describe("Array of node IDs to delete"),
+    nodeIds: z.array(z.string()).min(1).describe("Array of node IDs to delete"),
   },
   async ({ nodeIds }: any) => {
     try {

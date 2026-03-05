@@ -9,8 +9,8 @@ server.tool(
   {
     x: z.number().describe("X position"),
     y: z.number().describe("Y position"),
-    width: z.number().describe("Width of the rectangle"),
-    height: z.number().describe("Height of the rectangle"),
+    width: z.number().positive().describe("Width of the rectangle"),
+    height: z.number().positive().describe("Height of the rectangle"),
     name: z.string().optional().describe("Optional name for the rectangle"),
     parentId: z.string().optional().describe("Optional parent node ID to append the rectangle to"),
   },

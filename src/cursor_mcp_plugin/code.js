@@ -46,6 +46,9 @@ function sendProgressUpdate(
   return update;
 }
 
+// Performance: skip invisible instance children in all traversals
+figma.skipInvisibleInstanceChildren = true;
+
 // Show UI
 figma.showUI(__html__, { width: 350, height: 600 });
 
@@ -1358,8 +1361,6 @@ async function setTextContent(params) {
   }
 
   try {
-    await figma.loadFontAsync(node.fontName);
-
     await setCharacters(node, text);
 
     return {
@@ -1893,30 +1894,6 @@ async function processTextNode(node, parentPath, depth) {
       depth: depth,
     };
 
-    // Highlight the node briefly (optional visual feedback)
-    try {
-      const originalFills = JSON.parse(JSON.stringify(node.fills));
-      node.fills = [
-        {
-          type: "SOLID",
-          color: { r: 1, g: 0.5, b: 0 },
-          opacity: 0.3,
-        },
-      ];
-
-      // Brief delay for the highlight to be visible
-      await delay(100);
-
-      try {
-        node.fills = originalFills;
-      } catch (err) {
-        console.error("Error resetting fills:", err);
-      }
-    } catch (highlightErr) {
-      console.error("Error highlighting text node:", highlightErr);
-      // Continue anyway, highlighting is just visual feedback
-    }
-
     return safeTextNode;
   } catch (nodeErr) {
     console.error("Error processing text node:", nodeErr);
@@ -1966,31 +1943,6 @@ async function findTextNodes(node, parentPath = [], depth = 0, textNodes = []) {
         path: nodePath.join(" > "),
         depth: depth,
       };
-
-      // Only highlight the node if it's not being done via API
-      try {
-        // Safe way to create a temporary highlight without causing serialization issues
-        const originalFills = JSON.parse(JSON.stringify(node.fills));
-        node.fills = [
-          {
-            type: "SOLID",
-            color: { r: 1, g: 0.5, b: 0 },
-            opacity: 0.3,
-          },
-        ];
-
-        // Promise-based delay instead of setTimeout
-        await delay(500);
-
-        try {
-          node.fills = originalFills;
-        } catch (err) {
-          console.error("Error resetting fills:", err);
-        }
-      } catch (highlightErr) {
-        console.error("Error highlighting text node:", highlightErr);
-        // Continue anyway, highlighting is just visual feedback
-      }
 
       textNodes.push(safeTextNode);
     } catch (nodeErr) {
@@ -2415,9 +2367,9 @@ async function setAnnotation(params) {
     // Log current annotations before update
     console.log("Current node annotations:", node.annotations);
 
-    // Overwrite annotations
+    // Append annotation (preserve existing)
     console.log("Setting new annotation:", JSON.stringify(newAnnotation, null, 2));
-    node.annotations = [newAnnotation];
+    node.annotations = (node.annotations ? node.annotations.slice() : []).concat([newAnnotation]);
 
     // Verify the update
     console.log("Updated node annotations:", node.annotations);
@@ -3681,8 +3633,8 @@ async function createConnections(params) {
           // Continue with connection even if text setting fails
           results.push({
             id: clonedConnector.id,
-            startNodeId: startNodeId,
-            endNodeId: endNodeId,
+            startNodeId: startId,
+            endNodeId: endId,
             text: "",
             textError: textError.message,
           });

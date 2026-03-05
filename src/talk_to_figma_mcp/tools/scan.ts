@@ -9,7 +9,7 @@ server.tool(
   "Scan for child nodes with specific types in the selected Figma node",
   {
     nodeId: z.string().describe("ID of the node to scan"),
-    types: z.array(z.string()).describe("Array of node types to find in the child nodes (e.g. ['COMPONENT', 'FRAME'])"),
+    types: z.array(z.string()).min(1).describe("Array of node types to find in the child nodes (e.g. ['COMPONENT', 'FRAME'])"),
   },
   async ({ nodeId, types }: any) => {
     try {
@@ -89,7 +89,7 @@ server.tool(
   "get_reactions",
   "Get Figma Prototyping Reactions from multiple nodes. CRITICAL: The output MUST be processed using the 'reaction_to_connector_strategy' prompt IMMEDIATELY to generate parameters for connector lines via the 'create_connections' tool.",
   {
-    nodeIds: z.array(z.string()).describe("Array of node IDs to get reactions from"),
+    nodeIds: z.array(z.string()).min(1).describe("Array of node IDs to get reactions from"),
   },
   async ({ nodeIds }: any) => {
     try {
@@ -170,6 +170,7 @@ server.tool(
           text: z.string().optional().describe("Optional text to display on the connector"),
         }),
       )
+      .min(1)
       .describe("Array of node connections to create"),
   },
   async ({ connections }: any) => {
@@ -247,7 +248,7 @@ server.tool(
   "set_selections",
   "Set selection to multiple nodes in Figma and scroll viewport to show them",
   {
-    nodeIds: z.array(z.string()).describe("Array of node IDs to select"),
+    nodeIds: z.array(z.string()).min(1).describe("Array of node IDs to select"),
   },
   async ({ nodeIds }: any) => {
     try {

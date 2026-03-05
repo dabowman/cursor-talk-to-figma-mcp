@@ -163,6 +163,7 @@ server.tool(
             .describe("Additional properties for the annotation"),
         }),
       )
+      .min(1)
       .describe("Array of annotations to apply"),
   },
   async ({ nodeId, annotations }: any) => {
@@ -341,6 +342,7 @@ server.tool(
     sourceInstanceId: z.string().describe("ID of the source component instance"),
     targetNodeIds: z
       .array(z.string())
+      .min(1)
       .describe("Array of target instance IDs. Currently selected instances will be used."),
   },
   async ({ sourceInstanceId, targetNodeIds }: any) => {

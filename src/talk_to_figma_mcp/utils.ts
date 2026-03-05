@@ -8,8 +8,8 @@ export const logger = {
 };
 
 export function rgbaToHex(color: any): string {
-  // skip if color is already hex
-  if (color.startsWith("#")) {
+  // skip if color is already a string (e.g. hex)
+  if (typeof color === "string") {
     return color;
   }
 
