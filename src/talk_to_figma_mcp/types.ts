@@ -61,6 +61,7 @@ export type FigmaCommand =
   | "create_component_instance"
   | "get_instance_overrides"
   | "set_instance_overrides"
+  | "swap_component_variant"
   | "export_node_as_image"
   | "join"
   | "set_corner_radius"

@@ -211,6 +211,8 @@ async function handleCommand(command, params) {
         }
       }
       throw new Error("Missing targetNodeIds parameter");
+    case "swap_component_variant":
+      return await swapComponentVariant(params);
     case "set_layout_mode":
       return await setLayoutMode(params);
     case "set_padding":
@@ -1397,6 +1399,43 @@ async function setCornerRadius(params) {
     topRightRadius: "topRightRadius" in node ? node.topRightRadius : undefined,
     bottomRightRadius: "bottomRightRadius" in node ? node.bottomRightRadius : undefined,
     bottomLeftRadius: "bottomLeftRadius" in node ? node.bottomLeftRadius : undefined,
+  };
+}
+
+async function swapComponentVariant(params) {
+  const { instanceId, newVariantId } = params || {};
+
+  if (!instanceId) {
+    throw new Error("Missing instanceId parameter");
+  }
+  if (!newVariantId) {
+    throw new Error("Missing newVariantId parameter");
+  }
+
+  const instance = await figma.getNodeByIdAsync(instanceId);
+  if (!instance) {
+    throw new Error("Instance node not found: " + instanceId);
+  }
+  if (instance.type !== "INSTANCE") {
+    throw new Error("Node is not an instance: " + instanceId);
+  }
+
+  const newVariant = await figma.getNodeByIdAsync(newVariantId);
+  if (!newVariant) {
+    throw new Error("Variant component not found: " + newVariantId);
+  }
+  if (newVariant.type !== "COMPONENT") {
+    throw new Error("Target node is not a COMPONENT: " + newVariantId);
+  }
+
+  instance.swapComponent(newVariant);
+
+  return {
+    success: true,
+    instanceId: instance.id,
+    instanceName: instance.name,
+    newVariantId: newVariant.id,
+    newVariantName: newVariant.name,
   };
 }
 

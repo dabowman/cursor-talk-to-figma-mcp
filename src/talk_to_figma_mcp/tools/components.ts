@@ -385,3 +385,41 @@ server.tool(
     }
   },
 );
+
+// Swap Component Variant Tool
+server.tool(
+  "swap_component_variant",
+  "Swap an instance to a different variant within the same component set (e.g. change 'Bulk selection=False' to 'Bulk selection=True'). The instance keeps its position and overrides where compatible. newVariantId must be a COMPONENT node inside the same COMPONENT_SET.",
+  {
+    instanceId: z.string().describe("ID of the instance node to update"),
+    newVariantId: z
+      .string()
+      .describe("ID of the target COMPONENT variant to swap to"),
+  },
+  async ({ instanceId, newVariantId }: any) => {
+    try {
+      const result = await sendCommandToFigma("swap_component_variant", {
+        instanceId,
+        newVariantId,
+      });
+      const typedResult = result as any;
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(typedResult),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error swapping component variant: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
