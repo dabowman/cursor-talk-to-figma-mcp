@@ -83,18 +83,26 @@ server.tool(
 // Node Info Tool
 server.tool(
   "get_node_info",
-  "Get detailed information about a specific node in Figma",
+  "Get detailed information about a specific node in Figma. Use depth to limit traversal for large nodes — depth=1 returns only immediate children (with childCount for deeper nodes), depth=2 goes two levels deep, etc. Omit depth for the full tree.",
   {
     nodeId: z.string().describe("The ID of the node to get information about"),
+    depth: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        "Maximum depth of children to include. Omit for full tree. Use 1-2 for large components to avoid token overflow.",
+      ),
   },
-  async ({ nodeId }: any) => {
+  async ({ nodeId, depth }: any) => {
     try {
       const result = await sendCommandToFigma("get_node_info", { nodeId });
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(filterFigmaNode(result)),
+            text: JSON.stringify(filterFigmaNode(result, depth)),
           },
         ],
       };
@@ -114,11 +122,19 @@ server.tool(
 // Nodes Info Tool
 server.tool(
   "get_nodes_info",
-  "Get detailed information about multiple nodes in Figma",
+  "Get detailed information about multiple nodes in Figma. Use depth to limit traversal for large nodes.",
   {
     nodeIds: z.array(z.string()).describe("Array of node IDs to get information about"),
+    depth: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        "Maximum depth of children to include. Omit for full tree. Use 1-2 for large components to avoid token overflow.",
+      ),
   },
-  async ({ nodeIds }: any) => {
+  async ({ nodeIds, depth }: any) => {
     try {
       const results = await Promise.all(
         nodeIds.map(async (nodeId: any) => {
@@ -130,7 +146,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: JSON.stringify(results.map((result) => filterFigmaNode(result.info))),
+            text: JSON.stringify(results.map((result) => filterFigmaNode(result.info, depth))),
           },
         ],
       };

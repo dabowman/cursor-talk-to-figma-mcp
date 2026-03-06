@@ -21,7 +21,7 @@ export function rgbaToHex(color: any): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}${a === 255 ? "" : a.toString(16).padStart(2, "0")}`;
 }
 
-export function filterFigmaNode(node: any) {
+export function filterFigmaNode(node: any, depth = Number.POSITIVE_INFINITY) {
   // Skip VECTOR type nodes
   if (node.type === "VECTOR") {
     return null;
@@ -102,9 +102,13 @@ export function filterFigmaNode(node: any) {
   }
 
   if (node.children) {
-    filtered.children = node.children
-      .map((child: any) => filterFigmaNode(child))
-      .filter((child: any) => child !== null); // Remove null children (VECTOR nodes)
+    if (depth <= 0) {
+      filtered.childCount = node.children.length;
+    } else {
+      filtered.children = node.children
+        .map((child: any) => filterFigmaNode(child, depth - 1))
+        .filter((child: any) => child !== null); // Remove null children (VECTOR nodes)
+    }
   }
 
   return filtered;
