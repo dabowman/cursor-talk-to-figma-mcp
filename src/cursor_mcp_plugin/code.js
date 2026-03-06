@@ -1400,6 +1400,24 @@ async function setCornerRadius(params) {
   };
 }
 
+function findNodeByIdInTree(nodeId) {
+  let found = null;
+  function walk(node) {
+    if (found) return;
+    if (node.id === nodeId) {
+      found = node;
+      return;
+    }
+    if (node.children) {
+      for (let i = 0; i < node.children.length; i++) {
+        walk(node.children[i]);
+      }
+    }
+  }
+  walk(figma.currentPage);
+  return found;
+}
+
 async function setTextContent(params) {
   const { nodeId, text } = params || {};
 
@@ -1411,7 +1429,10 @@ async function setTextContent(params) {
     throw new Error("Missing text parameter");
   }
 
-  const node = await figma.getNodeByIdAsync(nodeId);
+  let node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) {
+    node = findNodeByIdInTree(nodeId);
+  }
   if (!node) {
     throw new Error(`Node not found with ID: ${nodeId}`);
   }
