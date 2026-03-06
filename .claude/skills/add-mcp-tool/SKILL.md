@@ -46,7 +46,7 @@ Add the tool in the relevant domain file under `src/talk_to_figma_mcp/tools/`:
 - `modify.ts` — rename_node, set_fill_color, set_stroke_color, move_node, resize_node, delete_node, set_corner_radius
 - `text.ts` — set_text_content, set_multiple_text_contents
 - `layout.ts` — set_layout_mode, set_padding, set_axis_align, set_layout_sizing, set_item_spacing
-- `components.ts` — get_styles, get_local_variables, get_local_components, create_component, combine_as_variants, create_component_instance, get/set_instance_overrides, swap_component_variant
+- `components.ts` — get_styles, get_local_variables, get_local_components, create_component, combine_as_variants, create_component_instance, get/set_instance_overrides, swap_component_variant, bind_variable, set_text_style, get_main_component
 - `scan.ts` — scan_text_nodes, scan_nodes_by_types, get_annotations, set_annotation
 - `export.ts` — export_node_as_image
 - `libraries.ts` — remote library tools (REST API based)

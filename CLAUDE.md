@@ -52,6 +52,8 @@ Bundles only the MCP server (`src/talk_to_figma_mcp/server.ts`) into `dist/` as 
 - **Zod validation**: All tool parameters are validated with Zod schemas.
 - **Batch operations**: Prefer `set_multiple_text_contents`, `delete_multiple_nodes`, `set_multiple_annotations`, `set_multiple_properties`, `create_frame_tree` over repeated single-node calls.
 - **Large nodes**: Use `get_node_info` with `depth=1` or `depth=2` for large component sets to avoid token overflow. Omit `depth` for full tree.
+- **Design tokens**: Use `get_local_variables` to discover variables, then `bind_variable` to bind them to node properties (fills, strokes, corner radius, padding, spacing, dimensions, opacity, visibility). Color variables bind via `setBoundVariableForPaint`; scalar variables bind via `setBoundVariable`.
+- **Text styles**: Use `get_styles` to discover text styles, then `set_text_style` to apply them to text nodes. This sets font family, size, weight, line height, and letter spacing in one call.
 
 ## Local Development
 
@@ -84,4 +86,5 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 - Always call `join_channel` before issuing any Figma commands (no arguments needed — auto-discovers the active plugin channel via the relay's `GET /channels` endpoint)
 - Call `get_document_info` first to understand the design structure
 - Use `read_my_design` or `get_selection` before making modifications
+- Use `get_styles` and `get_local_variables` to discover the design system before applying styles/tokens
 - The plugin and relay must both be running before any tool calls succeed
