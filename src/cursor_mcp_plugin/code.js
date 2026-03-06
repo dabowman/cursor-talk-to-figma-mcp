@@ -4721,7 +4721,7 @@ async function setTextStyle(params) {
     }
   }
 
-  node.textStyleId = styleId;
+  await node.setTextStyleIdAsync(styleId);
 
   return {
     success: true,
