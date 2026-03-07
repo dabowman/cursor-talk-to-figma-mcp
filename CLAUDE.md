@@ -51,9 +51,9 @@ Bundles only the MCP server (`src/talk_to_figma_mcp/server.ts`) into `dist/` as 
 - **Reconnection**: WebSocket auto-reconnects after 2 seconds on disconnect.
 - **Zod validation**: All tool parameters are validated with Zod schemas.
 - **Batch operations**: Prefer `set_multiple_text_contents`, `delete_multiple_nodes`, `set_multiple_annotations`, `set_multiple_properties`, `create_frame_tree` over repeated single-node calls.
-- **Large nodes**: Use `get_node_info` with `depth=1` or `depth=2` for large component sets to avoid token overflow. Omit `depth` for full tree.
-- **Design tokens**: Use `get_local_variables` to discover variables, then `bind_variable` to bind them to node properties (fills, strokes, corner radius, padding, spacing, dimensions, opacity, visibility). Color variables bind via `setBoundVariableForPaint`; scalar variables bind via `setBoundVariable`.
-- **Text styles**: Use `get_styles` to discover text styles, then `set_text_style` to apply them to text nodes. This sets font family, size, weight, line height, and letter spacing in one call.
+- **Large nodes**: Use `get_node_info` with `depth=1` or `depth=2` for large component sets to avoid token overflow. Use `depth=2` or `depth=3` when first inspecting component sets or complex frames. Omit `depth` for full tree on small nodes.
+- **Design tokens**: Use `get_local_variables` to discover variables, then `batch_bind_variables` to bind them to node properties in bulk. For single bindings, `bind_variable` also works. Color variables bind via `setBoundVariableForPaint`; scalar variables bind via `setBoundVariable`.
+- **Text styles**: Use `get_styles` to discover text styles, then `batch_set_text_styles` to apply them to multiple text nodes at once (deduplicates font loading). For single nodes, `set_text_style` also works.
 
 ## Local Development
 
@@ -88,3 +88,5 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 - Use `read_my_design` or `get_selection` before making modifications
 - Use `get_styles` and `get_local_variables` to discover the design system before applying styles/tokens
 - The plugin and relay must both be running before any tool calls succeed
+- After 2 consecutive identical errors on the same tool, stop retrying and diagnose the root cause (wrong node ID, lost connection, or type mismatch)
+- After 2 timeouts in a row, assume the WebSocket connection is lost — call `join_channel` to re-establish before retrying

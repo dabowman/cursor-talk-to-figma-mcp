@@ -24,7 +24,8 @@
     "lint": "bunx biome lint .",
     "lint:fix": "bunx biome check --write .",
     "format": "bunx biome format --write .",
-    "check": "bunx biome check ."
+    "check": "bunx biome check .",
+    "transcribe": "claude-code-transcripts all -s ~/.claude/projects/-Users-davidbowman-Github-cursor-talk-to-figma-mcp -o ~/Github/cursor-talk-to-figma-mcp/.claude/transcripts --include-agents"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
