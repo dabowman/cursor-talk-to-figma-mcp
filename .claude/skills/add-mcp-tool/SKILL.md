@@ -271,7 +271,7 @@ Key points:
 | `sendProgressUpdate(commandId, type, status, progress, total, processed, message, payload)` | Send progress through the chain — required for batch ops |
 | `setCharacters(node, text, options)` | Set text content with smart font handling (handles mixed fonts) |
 | `rgbaToHex(color)` | Convert Figma 0–1 RGBA to hex string |
-| `filterFigmaNode(node, depth)` | Serialize a Figma node to a clean JSON-safe object (depth limits child traversal) |
+| `filterFigmaNode(node, depth)` | Serialize a Figma node to a clean JSON-safe object (depth limits child traversal). Includes auto-layout properties (layoutMode, sizing modes, alignment, spacing, padding, layoutWrap) when layout is active. |
 | `findNodeByIdInTree(nodeId)` | Walk `figma.currentPage` depth-first to find a node — fallback for `getNodeByIdAsync` failures on nested instance IDs |
 | `toNumber(value)` | Safe string-to-number coercion |
 | `delay(ms)` | Promise-based delay |

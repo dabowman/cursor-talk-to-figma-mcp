@@ -101,6 +101,40 @@ export function filterFigmaNode(node: any, depth = Number.POSITIVE_INFINITY) {
     };
   }
 
+  // Auto-layout properties (REST API format from exportAsync JSON_REST_V1)
+  if (node.layoutMode && node.layoutMode !== "NONE") {
+    filtered.layoutMode = node.layoutMode;
+    filtered.primaryAxisSizingMode = node.primaryAxisSizingMode;
+    filtered.counterAxisSizingMode = node.counterAxisSizingMode;
+    if (node.primaryAxisAlignItems && node.primaryAxisAlignItems !== "MIN") {
+      filtered.primaryAxisAlignItems = node.primaryAxisAlignItems;
+    }
+    if (node.counterAxisAlignItems && node.counterAxisAlignItems !== "MIN") {
+      filtered.counterAxisAlignItems = node.counterAxisAlignItems;
+    }
+    if (node.itemSpacing > 0) {
+      filtered.itemSpacing = node.itemSpacing;
+    }
+    if (node.counterAxisSpacing > 0) {
+      filtered.counterAxisSpacing = node.counterAxisSpacing;
+    }
+    if (node.paddingLeft > 0) {
+      filtered.paddingLeft = node.paddingLeft;
+    }
+    if (node.paddingRight > 0) {
+      filtered.paddingRight = node.paddingRight;
+    }
+    if (node.paddingTop > 0) {
+      filtered.paddingTop = node.paddingTop;
+    }
+    if (node.paddingBottom > 0) {
+      filtered.paddingBottom = node.paddingBottom;
+    }
+    if (node.layoutWrap === "WRAP") {
+      filtered.layoutWrap = node.layoutWrap;
+    }
+  }
+
   if (node.children) {
     if (depth <= 0) {
       filtered.childCount = node.children.length;

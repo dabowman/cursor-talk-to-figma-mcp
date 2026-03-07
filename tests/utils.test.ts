@@ -208,6 +208,74 @@ describe("filterFigmaNode", () => {
     expect(result.children).toBeUndefined();
   });
 
+  test("includes layout properties for auto-layout frames", () => {
+    const node = {
+      id: "1:20",
+      name: "AutoLayout",
+      type: "FRAME",
+      layoutMode: "HORIZONTAL",
+      primaryAxisSizingMode: "AUTO",
+      counterAxisSizingMode: "FIXED",
+      primaryAxisAlignItems: "CENTER",
+      counterAxisAlignItems: "MIN",
+      itemSpacing: 12,
+      counterAxisSpacing: 0,
+      paddingLeft: 16,
+      paddingRight: 16,
+      paddingTop: 8,
+      paddingBottom: 8,
+      layoutWrap: "NO_WRAP",
+    };
+    const result = filterFigmaNode(node);
+    expect(result.layoutMode).toBe("HORIZONTAL");
+    expect(result.primaryAxisSizingMode).toBe("AUTO");
+    expect(result.counterAxisSizingMode).toBe("FIXED");
+    expect(result.primaryAxisAlignItems).toBe("CENTER");
+    expect(result.counterAxisAlignItems).toBeUndefined(); // MIN is default, omitted
+    expect(result.itemSpacing).toBe(12);
+    expect(result.counterAxisSpacing).toBeUndefined(); // 0 is default, omitted
+    expect(result.paddingLeft).toBe(16);
+    expect(result.paddingRight).toBe(16);
+    expect(result.paddingTop).toBe(8);
+    expect(result.paddingBottom).toBe(8);
+    expect(result.layoutWrap).toBeUndefined(); // NO_WRAP is default, omitted
+  });
+
+  test("excludes layout properties when layoutMode is NONE", () => {
+    const node = {
+      id: "1:21",
+      name: "Plain",
+      type: "FRAME",
+      layoutMode: "NONE",
+      paddingLeft: 10,
+    };
+    const result = filterFigmaNode(node);
+    expect(result.layoutMode).toBeUndefined();
+    expect(result.paddingLeft).toBeUndefined();
+  });
+
+  test("excludes layout properties when layoutMode is absent", () => {
+    const node = { id: "1:22", name: "NoLayout", type: "FRAME" };
+    const result = filterFigmaNode(node);
+    expect(result.layoutMode).toBeUndefined();
+  });
+
+  test("includes layoutWrap only when WRAP", () => {
+    const node = {
+      id: "1:23",
+      name: "Wrapped",
+      type: "FRAME",
+      layoutMode: "HORIZONTAL",
+      primaryAxisSizingMode: "FIXED",
+      counterAxisSizingMode: "FIXED",
+      layoutWrap: "WRAP",
+      counterAxisSpacing: 8,
+    };
+    const result = filterFigmaNode(node);
+    expect(result.layoutWrap).toBe("WRAP");
+    expect(result.counterAxisSpacing).toBe(8);
+  });
+
   test("default depth traverses full tree", () => {
     const node = {
       id: "1:0",
