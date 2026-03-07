@@ -263,8 +263,12 @@ async function handleCommand(command, params) {
       return await getMainComponent(params);
     case "bind_variable":
       return await bindVariable(params);
+    case "batch_bind_variables":
+      return await batchBindVariables(params);
     case "set_text_style":
       return await setTextStyle(params);
+    case "batch_set_text_styles":
+      return await batchSetTextStyles(params);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -4675,6 +4679,123 @@ async function bindVariable(params) {
   };
 }
 
+async function batchBindVariables(params) {
+  var bindings = (params || {}).bindings;
+  var commandId = (params || {}).commandId;
+
+  if (!bindings || !Array.isArray(bindings) || bindings.length === 0) {
+    throw new Error("Missing or empty bindings array");
+  }
+
+  var totalOps = bindings.length;
+  var successCount = 0;
+  var failureCount = 0;
+  var results = [];
+
+  if (commandId) {
+    sendProgressUpdate(commandId, "batch_bind_variables", "started", 0, totalOps, 0, "Starting variable bindings");
+  }
+
+  var fieldMap = {
+    fills: "fills",
+    fill: "fills",
+    strokes: "strokes",
+    stroke: "strokes",
+    opacity: "opacity",
+    cornerRadius: "topLeftRadius",
+    topLeftRadius: "topLeftRadius",
+    topRightRadius: "topRightRadius",
+    bottomLeftRadius: "bottomLeftRadius",
+    bottomRightRadius: "bottomRightRadius",
+    paddingTop: "paddingTop",
+    paddingRight: "paddingRight",
+    paddingBottom: "paddingBottom",
+    paddingLeft: "paddingLeft",
+    itemSpacing: "itemSpacing",
+    counterAxisSpacing: "counterAxisSpacing",
+    width: "width",
+    height: "height",
+    minWidth: "minWidth",
+    maxWidth: "maxWidth",
+    minHeight: "minHeight",
+    maxHeight: "maxHeight",
+    visible: "visible",
+    characters: "characters",
+  };
+
+  var CHUNK_SIZE = 10;
+  var totalChunks = Math.ceil(totalOps / CHUNK_SIZE);
+  var chunkIdx, start, end, chunk, chunkPromises, chunkResults, ri, processed, pct;
+
+  for (chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+    start = chunkIdx * CHUNK_SIZE;
+    end = Math.min(start + CHUNK_SIZE, totalOps);
+    chunk = bindings.slice(start, end);
+
+    chunkPromises = chunk.map(function (binding) {
+      return (async function (b) {
+        try {
+          const node = await figma.getNodeByIdAsync(b.nodeId);
+          if (!node) throw new Error("Node not found: " + b.nodeId);
+
+          const variable = await figma.variables.getVariableByIdAsync(b.variableId);
+          if (!variable) throw new Error("Variable not found: " + b.variableId);
+
+          const figmaField = fieldMap[b.field];
+          if (!figmaField) throw new Error("Unsupported field: " + b.field);
+
+          if (figmaField === "fills" || figmaField === "strokes") {
+            if (!(figmaField in node)) {
+              throw new Error("Node does not support " + figmaField + ": " + b.nodeId);
+            }
+            let paints = JSON.parse(JSON.stringify(node[figmaField]));
+            if (!paints || paints.length === 0) {
+              paints = [{ type: "SOLID", color: { r: 0, g: 0, b: 0 }, opacity: 1 }];
+              node[figmaField] = paints;
+            }
+            const paintCopy = JSON.parse(JSON.stringify(node[figmaField]));
+            paintCopy[0] = figma.variables.setBoundVariableForPaint(paintCopy[0], "color", variable);
+            node[figmaField] = paintCopy;
+          } else {
+            node.setBoundVariable(figmaField, variable);
+          }
+
+          return { success: true, nodeId: b.nodeId, field: b.field, variableId: b.variableId };
+        } catch (e) {
+          return { success: false, nodeId: b.nodeId, field: b.field, error: e.message || String(e) };
+        }
+      })(binding);
+    });
+
+    chunkResults = await Promise.all(chunkPromises);
+    for (ri = 0; ri < chunkResults.length; ri++) {
+      results.push(chunkResults[ri]);
+      if (chunkResults[ri].success) successCount++;
+      else failureCount++;
+    }
+
+    if (commandId) {
+      processed = Math.min(end, totalOps);
+      pct = Math.round((processed / totalOps) * 100);
+      sendProgressUpdate(commandId, "batch_bind_variables", "in_progress", pct, totalOps, processed,
+        "Processed " + processed + " of " + totalOps,
+        { currentChunk: chunkIdx + 1, totalChunks: totalChunks, chunkSize: CHUNK_SIZE });
+    }
+  }
+
+  if (commandId) {
+    sendProgressUpdate(commandId, "batch_bind_variables", "completed", 100, totalOps, totalOps, "All bindings completed");
+  }
+
+  return {
+    success: failureCount === 0,
+    totalBindings: totalOps,
+    successCount: successCount,
+    failureCount: failureCount,
+    results: results,
+  };
+}
+
 async function setTextStyle(params) {
   var _a = params || {},
     nodeId = _a.nodeId,
@@ -4729,5 +4850,120 @@ async function setTextStyle(params) {
     nodeName: node.name,
     styleId: styleId,
     styleName: style.name,
+  };
+}
+
+async function batchSetTextStyles(params) {
+  var assignments = (params || {}).assignments;
+  var commandId = (params || {}).commandId;
+
+  if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+    throw new Error("Missing or empty assignments array");
+  }
+
+  var totalOps = assignments.length;
+  var successCount = 0;
+  var failureCount = 0;
+  var results = [];
+  var si, sk, style;
+
+  if (commandId) {
+    sendProgressUpdate(commandId, "batch_set_text_styles", "started", 0, totalOps, 0, "Starting text style assignments");
+  }
+
+  // Phase 1: Pre-load all unique styles and their fonts
+  var uniqueStyleIds = {};
+  for (si = 0; si < assignments.length; si++) {
+    uniqueStyleIds[assignments[si].styleId] = true;
+  }
+  var styleCache = {};
+  var styleKeys = Object.keys(uniqueStyleIds);
+  for (sk = 0; sk < styleKeys.length; sk++) {
+    try {
+      style = await figma.getStyleByIdAsync(styleKeys[sk]);
+      if (style && style.type === "TEXT") {
+        if (style.fontName) {
+          await figma.loadFontAsync(style.fontName);
+        }
+        styleCache[styleKeys[sk]] = style;
+      }
+    } catch (_e) {
+      // Style load failure will be caught per-item later
+    }
+  }
+
+  // Phase 2: Process in chunks
+  var CHUNK_SIZE = 5;
+  var totalChunks = Math.ceil(totalOps / CHUNK_SIZE);
+  var chunkIdx, start, end, chunk, chunkPromises, chunkResults, ri, processed, pct;
+
+  for (chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+    start = chunkIdx * CHUNK_SIZE;
+    end = Math.min(start + CHUNK_SIZE, totalOps);
+    chunk = assignments.slice(start, end);
+
+    chunkPromises = chunk.map(function (assignment) {
+      return (async function (a) {
+        try {
+          const node = await figma.getNodeByIdAsync(a.nodeId);
+          if (!node) throw new Error("Node not found: " + a.nodeId);
+          if (node.type !== "TEXT") throw new Error("Not a TEXT node: " + a.nodeId + " (type: " + node.type + ")");
+
+          const cachedStyle = styleCache[a.styleId];
+          if (!cachedStyle) throw new Error("Style not found or not a text style: " + a.styleId);
+
+          // Load current node fonts
+          if (node.fontName !== figma.mixed) {
+            await figma.loadFontAsync(node.fontName);
+          } else {
+            const len = node.characters.length;
+            const fontsToLoad = {};
+            for (let i = 0; i < len; i++) {
+              const f = node.getRangeFontName(i, i + 1);
+              const key = f.family + ":" + f.style;
+              if (!fontsToLoad[key]) {
+                fontsToLoad[key] = f;
+              }
+            }
+            const fontEntries = Object.keys(fontsToLoad);
+            for (let j = 0; j < fontEntries.length; j++) {
+              await figma.loadFontAsync(fontsToLoad[fontEntries[j]]);
+            }
+          }
+
+          await node.setTextStyleIdAsync(a.styleId);
+          return { success: true, nodeId: a.nodeId, styleId: a.styleId, styleName: cachedStyle.name };
+        } catch (e) {
+          return { success: false, nodeId: a.nodeId, styleId: a.styleId, error: e.message || String(e) };
+        }
+      })(assignment);
+    });
+
+    chunkResults = await Promise.all(chunkPromises);
+    for (ri = 0; ri < chunkResults.length; ri++) {
+      results.push(chunkResults[ri]);
+      if (chunkResults[ri].success) successCount++;
+      else failureCount++;
+    }
+
+    if (commandId) {
+      processed = Math.min(end, totalOps);
+      pct = Math.round((processed / totalOps) * 100);
+      sendProgressUpdate(commandId, "batch_set_text_styles", "in_progress", pct, totalOps, processed,
+        "Processed " + processed + " of " + totalOps,
+        { currentChunk: chunkIdx + 1, totalChunks: totalChunks, chunkSize: CHUNK_SIZE });
+    }
+  }
+
+  if (commandId) {
+    sendProgressUpdate(commandId, "batch_set_text_styles", "completed", 100, totalOps, totalOps, "All style assignments completed");
+  }
+
+  return {
+    success: failureCount === 0,
+    totalAssignments: totalOps,
+    successCount: successCount,
+    failureCount: failureCount,
+    results: results,
   };
 }

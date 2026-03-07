@@ -57,28 +57,41 @@ server.tool(
 );
 
 // Get Local Components Tool
-server.tool("get_local_components", "Get all local components from the Figma document", {}, async () => {
-  try {
-    const result = await sendCommandToFigma("get_local_components");
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result),
-        },
-      ],
-    };
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error getting local components: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-    };
-  }
-});
+server.tool(
+  "get_local_components",
+  "Get local components from the Figma document. Use nameFilter to search by name substring (case-insensitive) and reduce response size.",
+  {
+    nameFilter: z.string().optional().describe("Filter components by name substring (case-insensitive)"),
+  },
+  async ({ nameFilter }: any) => {
+    try {
+      const result = await sendCommandToFigma("get_local_components");
+      const allComponents = (result as any).components || [];
+      let components = allComponents;
+      if (nameFilter) {
+        const filter = nameFilter.toLowerCase();
+        components = allComponents.filter((c: any) => c.name.toLowerCase().includes(filter));
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ count: components.length, components }),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting local components: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
 
 // Get Annotations Tool
 server.tool(
@@ -601,6 +614,71 @@ server.tool(
   },
 );
 
+// Batch Bind Variables Tool
+server.tool(
+  "batch_bind_variables",
+  "Bind multiple design token variables to node properties in a single call. Much more efficient than calling bind_variable repeatedly. Use get_local_variables first to find variable IDs.",
+  {
+    bindings: z
+      .array(
+        z.object({
+          nodeId: z.string().describe("The ID of the node"),
+          field: z
+            .enum([
+              "fill",
+              "stroke",
+              "opacity",
+              "cornerRadius",
+              "topLeftRadius",
+              "topRightRadius",
+              "bottomLeftRadius",
+              "bottomRightRadius",
+              "paddingTop",
+              "paddingRight",
+              "paddingBottom",
+              "paddingLeft",
+              "itemSpacing",
+              "counterAxisSpacing",
+              "width",
+              "height",
+              "minWidth",
+              "maxWidth",
+              "minHeight",
+              "maxHeight",
+              "visible",
+              "characters",
+            ])
+            .describe("The property to bind"),
+          variableId: z.string().describe("The variable ID to bind"),
+        }),
+      )
+      .min(1)
+      .describe("Array of variable bindings to apply"),
+  },
+  async ({ bindings }: any) => {
+    try {
+      const result = await sendCommandToFigma("batch_bind_variables", { bindings }, 60000);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error batch binding variables: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
 // Set Text Style Tool
 server.tool(
   "set_text_style",
@@ -629,6 +707,45 @@ server.tool(
           {
             type: "text",
             text: `Error setting text style: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Batch Set Text Styles Tool
+server.tool(
+  "batch_set_text_styles",
+  "Apply text styles to multiple text nodes in a single call. Much more efficient than calling set_text_style repeatedly. Deduplicates font loading across all nodes. Use get_styles first to find style IDs.",
+  {
+    assignments: z
+      .array(
+        z.object({
+          nodeId: z.string().describe("The ID of the text node"),
+          styleId: z.string().describe("The text style ID to apply"),
+        }),
+      )
+      .min(1)
+      .describe("Array of text style assignments"),
+  },
+  async ({ assignments }: any) => {
+    try {
+      const result = await sendCommandToFigma("batch_set_text_styles", { assignments }, 60000);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error batch setting text styles: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       };

@@ -93,4 +93,6 @@ export type FigmaCommand =
   | "clone_and_modify"
   | "get_main_component"
   | "bind_variable"
-  | "set_text_style";
+  | "batch_bind_variables"
+  | "set_text_style"
+  | "batch_set_text_styles";
