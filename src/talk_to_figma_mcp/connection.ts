@@ -170,7 +170,11 @@ export async function joinChannel(channelName: string): Promise<void> {
 }
 
 // Function to send commands to Figma
-export function sendCommandToFigma(command: FigmaCommand, params: unknown = {}, timeoutMs: number = 30000): Promise<unknown> {
+export function sendCommandToFigma(
+  command: FigmaCommand,
+  params: unknown = {},
+  timeoutMs: number = 30000,
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     // If not connected, try to connect first
     if (!ws || ws.readyState !== WebSocket.OPEN) {

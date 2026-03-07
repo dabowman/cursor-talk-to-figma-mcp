@@ -276,7 +276,10 @@ const nodeSpecSchema: z.ZodType<any> = z.lazy(() =>
     fontStyle: z.string().optional().describe("Font style (default: Regular)"),
     fontColor: colorSchema,
     // Children
-    children: z.array(z.lazy(() => nodeSpecSchema)).optional().describe("Child nodes"),
+    children: z
+      .array(z.lazy(() => nodeSpecSchema))
+      .optional()
+      .describe("Child nodes"),
   }),
 );
 

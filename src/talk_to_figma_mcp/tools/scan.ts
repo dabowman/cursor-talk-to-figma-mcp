@@ -9,7 +9,10 @@ server.tool(
   "Scan for child nodes with specific types in the selected Figma node",
   {
     nodeId: z.string().describe("ID of the node to scan"),
-    types: z.array(z.string()).min(1).describe("Array of node types to find in the child nodes (e.g. ['COMPONENT', 'FRAME'])"),
+    types: z
+      .array(z.string())
+      .min(1)
+      .describe("Array of node types to find in the child nodes (e.g. ['COMPONENT', 'FRAME'])"),
   },
   async ({ nodeId, types }: any) => {
     try {

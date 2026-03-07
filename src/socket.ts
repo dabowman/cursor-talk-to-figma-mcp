@@ -16,7 +16,6 @@ function handleConnection(ws: ServerWebSocket<any>) {
       message: "Please join a channel to start chatting",
     }),
   );
-
 }
 
 const server = Bun.serve({
@@ -40,9 +39,7 @@ const server = Bun.serve({
     if (req.method === "GET" && url.pathname === "/channels") {
       const result: Record<string, { clientCount: number }> = {};
       channels.forEach((clients, name) => {
-        const activeCount = [...clients].filter(
-          (c) => c.readyState === WebSocket.OPEN,
-        ).length;
+        const activeCount = [...clients].filter((c) => c.readyState === WebSocket.OPEN).length;
         if (activeCount > 0) {
           result[name] = { clientCount: activeCount };
         }

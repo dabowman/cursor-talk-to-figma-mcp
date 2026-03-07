@@ -143,9 +143,7 @@ describe("filterFigmaNode", () => {
       id: "1:11",
       name: "Rect",
       type: "RECTANGLE",
-      strokes: [
-        { type: "SOLID", color: { r: 0, g: 1, b: 0, a: 1 }, boundVariables: { color: "x" } },
-      ],
+      strokes: [{ type: "SOLID", color: { r: 0, g: 1, b: 0, a: 1 }, boundVariables: { color: "x" } }],
     };
     const result = filterFigmaNode(node);
     expect(result.strokes[0].color).toBe("#00ff00");
@@ -184,9 +182,7 @@ describe("filterFigmaNode", () => {
           id: "1:1",
           name: "Child",
           type: "FRAME",
-          children: [
-            { id: "1:2", name: "Grandchild", type: "RECTANGLE" },
-          ],
+          children: [{ id: "1:2", name: "Grandchild", type: "RECTANGLE" }],
         },
       ],
     };

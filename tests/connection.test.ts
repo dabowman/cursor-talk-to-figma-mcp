@@ -42,11 +42,19 @@ describe("discoverChannels", () => {
   test("returns channels with client counts after clients join", async () => {
     // Connect a client and join a channel
     const ws = new WebSocket(`ws://localhost:${PORT}`);
-    await new Promise((resolve) => { ws.onopen = resolve; });
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // welcome
+    await new Promise((resolve) => {
+      ws.onopen = resolve;
+    });
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // welcome
     ws.send(JSON.stringify({ type: "join", channel: "discover-test-ch" }));
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // join confirm
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // join result
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // join confirm
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // join result
 
     const response = await fetch(`http://localhost:${PORT}/channels`);
     const data = await response.json();
@@ -61,11 +69,19 @@ describe("discoverChannels", () => {
   test("discoverChannels function works", async () => {
     // Connect a client to create a channel
     const ws = new WebSocket(`ws://localhost:${PORT}`);
-    await new Promise((resolve) => { ws.onopen = resolve; });
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // welcome
+    await new Promise((resolve) => {
+      ws.onopen = resolve;
+    });
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // welcome
     ws.send(JSON.stringify({ type: "join", channel: "fn-discover-ch" }));
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // join confirm
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // join result
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // join confirm
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // join result
 
     const { discoverChannels } = await import("../src/talk_to_figma_mcp/connection.js");
     const channels = await discoverChannels(PORT);
@@ -103,9 +119,7 @@ describe("sendCommandToFigma", () => {
   });
 
   test("join command succeeds and sets channel", async () => {
-    const { connectToFigma, joinChannel } = await import(
-      "../src/talk_to_figma_mcp/connection.js"
-    );
+    const { connectToFigma, joinChannel } = await import("../src/talk_to_figma_mcp/connection.js");
 
     connectToFigma(PORT);
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -119,20 +133,26 @@ describe("sendCommandToFigma", () => {
   test("sendCommandToFigma constructs correct message shape", async () => {
     // Connect a spy client to the same channel to observe the message
     const ws = new WebSocket(`ws://localhost:${PORT}`);
-    await new Promise((resolve) => { ws.onopen = resolve; });
+    await new Promise((resolve) => {
+      ws.onopen = resolve;
+    });
 
     // Read welcome
-    await new Promise((resolve) => { ws.onmessage = resolve; });
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    });
 
     // Join channel
     ws.send(JSON.stringify({ type: "join", channel: "shape-test-ch" }));
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // join confirm
-    await new Promise((resolve) => { ws.onmessage = resolve; }); // join result
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // join confirm
+    await new Promise((resolve) => {
+      ws.onmessage = resolve;
+    }); // join result
 
     // Now connect the MCP module to the same channel
-    const { connectToFigma, joinChannel, sendCommandToFigma } = await import(
-      "../src/talk_to_figma_mcp/connection.js"
-    );
+    const { connectToFigma, joinChannel, sendCommandToFigma } = await import("../src/talk_to_figma_mcp/connection.js");
     connectToFigma(PORT);
     await new Promise((resolve) => setTimeout(resolve, 300));
     await joinChannel("shape-test-ch");
@@ -203,15 +223,21 @@ describe("sendCommandToFigma", () => {
 
   test("error response from plugin rejects the promise", async () => {
     const spy = new WebSocket(`ws://localhost:${PORT}`);
-    await new Promise((resolve) => { spy.onopen = resolve; });
-    await new Promise((resolve) => { spy.onmessage = resolve; }); // welcome
+    await new Promise((resolve) => {
+      spy.onopen = resolve;
+    });
+    await new Promise((resolve) => {
+      spy.onmessage = resolve;
+    }); // welcome
     spy.send(JSON.stringify({ type: "join", channel: "err-test-ch" }));
-    await new Promise((resolve) => { spy.onmessage = resolve; }); // join confirm
-    await new Promise((resolve) => { spy.onmessage = resolve; }); // join result
+    await new Promise((resolve) => {
+      spy.onmessage = resolve;
+    }); // join confirm
+    await new Promise((resolve) => {
+      spy.onmessage = resolve;
+    }); // join result
 
-    const { connectToFigma, joinChannel, sendCommandToFigma } = await import(
-      "../src/talk_to_figma_mcp/connection.js"
-    );
+    const { connectToFigma, joinChannel, sendCommandToFigma } = await import("../src/talk_to_figma_mcp/connection.js");
     connectToFigma(PORT);
     await new Promise((resolve) => setTimeout(resolve, 300));
     await joinChannel("err-test-ch");
