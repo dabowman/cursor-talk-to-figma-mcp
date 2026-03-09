@@ -57,6 +57,47 @@ Bundles only the MCP server (`src/talk_to_figma_mcp/server.ts`) into `dist/` as 
 - **Text styles**: Use `get_styles` to discover text styles, then `batch_set_text_styles` to apply them to multiple text nodes at once (deduplicates font loading). For single nodes, `set_text_style` also works.
 - **Comments**: Use `get_comments`, `post_comment`, `delete_comment` to read/write Figma file comments via REST API. Requires `FIGMA_API_TOKEN` with `file_comments:read` and `file_comments:write` scopes. The `fileKey` param comes from the Figma URL: `https://www.figma.com/design/<fileKey>/...`
 
+## Figma Design Patterns
+
+These are hard-won patterns from real agent sessions. Violating them causes silent failures or wasted tool calls.
+
+### Sizing sequencing
+Cannot set `FILL` sizing at frame creation time — the frame isn't yet a child of an auto-layout parent when the property is set. **Pattern**: Create the frame first (with `parentId`), THEN call `set_layout_sizing` separately. `create_frame_tree` handles this automatically with two-pass sizing.
+
+### Use FRAME, not RECTANGLE, for stretchy shapes
+RECTANGLE nodes cannot have `layoutSizingVertical: FILL`. Use a FRAME with a fill color instead. Example: a 1px-wide FRAME replaces a RECTANGLE for timeline connecting lines.
+
+### `create_frame_tree` inline capabilities
+Beyond basic structure, the tree spec supports: `cornerRadius`, `strokeColor` + `strokeWeight`, font properties (`fontWeight`, `fontSize`, `fontColor`) on TEXT nodes, and `fillColor`. FILL sizing is applied in a second pass after all nodes exist. The root node's FILL sizing works if the parent has auto-layout.
+
+### Instance text override ID format
+For text overrides on instances, use the path format `I<instanceId>;<componentTextNodeId>`. For nested instances: `I<outerInstance>;<innerInstance>;<textNodeId>`. Use `scan_text_nodes` on the component to discover text node IDs first.
+
+### Bind variables on COMPONENT nodes, not instances
+Variable bindings and text style assignments propagate from a COMPONENT to all its instances automatically. Always bind at the component level. Use `get_main_component(instanceId)` to resolve an instance to its source component.
+
+### Reparenting nodes
+No `reparent_node` tool exists — `move_node` only changes x/y, not hierarchy. To move a node to a new parent: `clone_and_modify(nodeId, parentId=newParent)` + delete the original. Clones preserve all instance overrides.
+
+### Silent connection drops
+If commands time out consistently, the plugin connection has likely dropped. Closing/reopening the plugin in Figma creates a NEW channel. Recovery: call `join_channel` again (auto-discovers the new channel). The relay stays running; it's the plugin↔relay WebSocket that breaks.
+
+### MCP tool discovery after code changes
+When new tools are added to the MCP server source, they won't appear until the MCP connection is restarted (via `/mcp` in Claude Code). After restart, tools need re-discovery via `ToolSearch` and the channel needs re-joining.
+
+## Concurrency & Sub-Agents
+
+### Plugin concurrency control
+The plugin classifies operations: `READ_OPS` run freely, `GLOBAL_OPS` (e.g., `create_frame_tree`, `batch_bind_variables`, `delete_multiple_nodes`) serialize via global mutex, and per-node writes lock by `nodeId`. Max 6 concurrent in-flight operations. This makes parallel agent execution safe when agents operate on disjoint node sets.
+
+### Sub-agent architecture
+For large Figma tasks (8+ variants, 100+ tool calls), use the `/figma-sub-agents` skill to delegate work:
+- **Discovery** (`.claude/agents/figma-discovery.md`) — read-only exploration, returns structured JSON summary
+- **Builder** — creates/clones node structures, can run in parallel (max 3)
+- **Styler** — applies variable bindings and text styles, can run in parallel (max 3)
+
+Phases must be sequential: Discovery → Build → Style. Within Build or Style, agents can run in parallel on disjoint node subtrees. All agents share one WebSocket channel — request UUID correlation routes responses.
+
 ## Local Development
 
 For local development, point the MCP config to the local server.ts instead of the published package:

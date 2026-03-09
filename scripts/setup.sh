@@ -1,15 +1,20 @@
 #!/bin/bash
 
-MCP_CONFIG='{
-  "mcpServers": {
-    "TalkToFigma": {
-      "command": "bunx",
-      "args": [
-        "cursor-talk-to-figma-mcp@latest"
+# Get the directory where this script lives, then resolve to repo root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+SERVER_PATH="$REPO_DIR/src/talk_to_figma_mcp/server.ts"
+
+MCP_CONFIG="{
+  \"mcpServers\": {
+    \"TalkToFigma\": {
+      \"command\": \"bun\",
+      \"args\": [
+        \"$SERVER_PATH\"
       ]
     }
   }
-}'
+}"
 
 bun install
 
