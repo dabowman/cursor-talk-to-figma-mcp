@@ -56,6 +56,152 @@ function toNumber(val, fallback) {
 // Performance: skip invisible instance children in all traversals
 figma.skipInvisibleInstanceChildren = true;
 
+// ─── Concurrency Control ────────────────────────────────────────────────────
+// Enables safe parallel processing of multiple agent requests.
+// - Reads run concurrently with no locking
+// - Writes to different nodes run concurrently with per-node locks
+// - Global operations (multi-node writes, tree mutations) serialize via a mutex
+// - Max concurrent in-flight operations capped to stay within Figma's CPU budget
+
+// Operation classification: which commands are read-only?
+var READ_OPS = {
+  "get_document_info": true,
+  "get_selection": true,
+  "get_node_info": true,
+  "get_nodes_info": true,
+  "read_my_design": true,
+  "scan_text_nodes": true,
+  "scan_nodes_by_types": true,
+  "get_styles": true,
+  "get_local_variables": true,
+  "get_local_components": true,
+  "get_library_variables": true,
+  "get_library_components": true,
+  "search_library_components": true,
+  "get_annotations": true,
+  "get_reactions": true,
+  "get_component_variants": true,
+  "get_instance_overrides": true,
+  "get_main_component": true,
+  "export_node_as_image": true,
+  "set_selections": true,
+  "set_focus": true
+};
+
+// Global operations that touch multiple nodes or tree structure — serialize globally
+var GLOBAL_OPS = {
+  "create_frame_tree": true,
+  "delete_multiple_nodes": true,
+  "combine_as_variants": true,
+  "reorder_children": true,
+  "create_connections": true,
+  "set_multiple_properties": true,
+  "batch_bind_variables": true,
+  "batch_set_text_styles": true,
+  "set_multiple_text_contents": true,
+  "set_multiple_annotations": true,
+  "set_instance_overrides": true
+};
+// Everything else is a per-node write operation (locked by params.nodeId)
+
+// Node-level write locks: prevents two writes to the same node from interleaving
+var nodeLocks = {};
+
+function acquireNodeLock(nodeId) {
+  if (!nodeId) {
+    return Promise.resolve(() => {});
+  }
+  var entry = nodeLocks[nodeId];
+  if (!entry) {
+    entry = { queue: Promise.resolve() };
+    nodeLocks[nodeId] = entry;
+  }
+  var release;
+  var prev = entry.queue;
+  entry.queue = new Promise((resolve) => {
+    release = resolve;
+  });
+  return prev.then(() => release);
+}
+
+// Global mutex: serializes operations that touch multiple nodes or the tree structure
+var globalLockQueue = Promise.resolve();
+
+function acquireGlobalLock() {
+  var release;
+  var prev = globalLockQueue;
+  globalLockQueue = new Promise((resolve) => {
+    release = resolve;
+  });
+  return prev.then(() => release);
+}
+
+// Concurrency limiter: caps in-flight operations to avoid Figma CPU budget issues
+var inFlightCount = 0;
+var MAX_CONCURRENT = 6;
+var waitQueue = [];
+
+function waitForSlot() {
+  if (inFlightCount < MAX_CONCURRENT) {
+    inFlightCount++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    waitQueue.push(resolve);
+  });
+}
+
+function releaseSlot() {
+  inFlightCount--;
+  if (waitQueue.length > 0 && inFlightCount < MAX_CONCURRENT) {
+    inFlightCount++;
+    waitQueue.shift()();
+  }
+}
+
+// Concurrency-safe request router
+async function routeCommand(id, command, params) {
+  await waitForSlot();
+  try {
+    var result;
+    if (GLOBAL_OPS[command]) {
+      // Global operations: acquire global mutex (serializes with all other global ops)
+      var release = await acquireGlobalLock();
+      try {
+        result = await handleCommand(command, params);
+      } finally {
+        release();
+      }
+    } else if (!READ_OPS[command] && params && params.nodeId) {
+      // Per-node write: acquire lock for this specific node
+      var release = await acquireNodeLock(params.nodeId);
+      try {
+        result = await handleCommand(command, params);
+      } finally {
+        release();
+      }
+    } else {
+      // Read operations or writes without a nodeId: run freely
+      result = await handleCommand(command, params);
+    }
+    figma.ui.postMessage({
+      type: "command-result",
+      id: id,
+      result: result,
+    });
+  } catch (error) {
+    figma.ui.postMessage({
+      type: "command-error",
+      id: id,
+      error: error.message || "Error executing command",
+    });
+  } finally {
+    releaseSlot();
+  }
+}
+
+// ─── End Concurrency Control ────────────────────────────────────────────────
+
 // Show UI
 figma.showUI(__html__, { width: 320, height: 56 });
 
@@ -72,22 +218,8 @@ figma.ui.onmessage = async (msg) => {
       figma.closePlugin();
       break;
     case "execute-command":
-      // Execute commands received from UI (which gets them from WebSocket)
-      try {
-        const result = await handleCommand(msg.command, msg.params);
-        // Send result back to UI
-        figma.ui.postMessage({
-          type: "command-result",
-          id: msg.id,
-          result,
-        });
-      } catch (error) {
-        figma.ui.postMessage({
-          type: "command-error",
-          id: msg.id,
-          error: error.message || "Error executing command",
-        });
-      }
+      // Route through concurrency control (does NOT await — runs concurrently)
+      routeCommand(msg.id, msg.command, msg.params);
       break;
   }
 };
