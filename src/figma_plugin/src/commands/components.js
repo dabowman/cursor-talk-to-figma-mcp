@@ -217,6 +217,94 @@ export async function getMainComponent(params) {
   };
 }
 
+export async function getComponentProperties(params) {
+  const { nodeId } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error("Node not found: " + nodeId);
+  if (node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+    throw new Error("Node must be a COMPONENT or COMPONENT_SET, got: " + node.type);
+  }
+  return {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    componentPropertyDefinitions: node.componentPropertyDefinitions,
+  };
+}
+
+export async function addComponentProperty(params) {
+  const { nodeId, name, type, defaultValue, preferredValues } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  if (!name) throw new Error("Missing name parameter");
+  if (!type) throw new Error("Missing type parameter");
+  if (defaultValue === undefined || defaultValue === null) throw new Error("Missing defaultValue parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error("Node not found: " + nodeId);
+  if (node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+    throw new Error("Node must be a COMPONENT or COMPONENT_SET, got: " + node.type);
+  }
+  const options = {};
+  if (preferredValues && Array.isArray(preferredValues)) {
+    options.preferredValues = preferredValues;
+  }
+  const fullName = node.addComponentProperty(name, type, defaultValue, options);
+  return {
+    id: node.id,
+    propertyName: fullName,
+    componentPropertyDefinitions: node.componentPropertyDefinitions,
+  };
+}
+
+export async function editComponentProperty(params) {
+  const { nodeId, propertyName, newName, defaultValue, preferredValues } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  if (!propertyName) throw new Error("Missing propertyName parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error("Node not found: " + nodeId);
+  if (node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+    throw new Error("Node must be a COMPONENT or COMPONENT_SET, got: " + node.type);
+  }
+  const edits = {};
+  if (newName !== undefined) edits.name = newName;
+  if (defaultValue !== undefined) edits.defaultValue = defaultValue;
+  if (preferredValues !== undefined) edits.preferredValues = preferredValues;
+  node.editComponentProperty(propertyName, edits);
+  return {
+    id: node.id,
+    componentPropertyDefinitions: node.componentPropertyDefinitions,
+  };
+}
+
+export async function deleteComponentProperty(params) {
+  const { nodeId, propertyName } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  if (!propertyName) throw new Error("Missing propertyName parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error("Node not found: " + nodeId);
+  if (node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+    throw new Error("Node must be a COMPONENT or COMPONENT_SET, got: " + node.type);
+  }
+  node.deleteComponentProperty(propertyName);
+  return {
+    id: node.id,
+    componentPropertyDefinitions: node.componentPropertyDefinitions,
+  };
+}
+
+export async function setExposedInstance(params) {
+  const { nodeId, exposed } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  if (exposed === undefined) throw new Error("Missing exposed parameter");
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error("Node not found: " + nodeId);
+  if (node.type !== "INSTANCE") {
+    throw new Error("Node must be an INSTANCE, got: " + node.type);
+  }
+  node.isExposedInstance = exposed;
+  return { id: node.id, name: node.name, isExposedInstance: node.isExposedInstance };
+}
+
 export async function getInstanceOverrides(instanceNode = null) {
   let sourceInstance = null;
 

@@ -27,7 +27,7 @@ bun run check            # Lint + format check combined
 ## Architecture
 
 ### MCP Server (`src/figmagent_mcp/`)
-Modular server implementing MCP via `@modelcontextprotocol/sdk`. Entry point is `server.ts` which imports domain-grouped tool modules from `tools/` (document, create, modify, text, layout, components, export, scan, libraries) and prompt definitions from `prompts/`. Exposes 55+ tools and 6 AI prompts. Types in `types.ts`, utilities in `utils.ts`, WebSocket connection management in `connection.ts`. Communicates with the AI agent over stdio and with the WebSocket relay via `ws`. Each request gets a UUID, is tracked in a `pendingRequests` Map with timeout/promise callbacks, and resolves when the plugin responds.
+Modular server implementing MCP via `@modelcontextprotocol/sdk`. Entry point is `server.ts` which imports domain-grouped tool modules from `tools/` (document, create, modify, text, layout, components, export, scan, libraries) and prompt definitions from `prompts/`. Exposes 60+ tools and 6 AI prompts. Types in `types.ts`, utilities in `utils.ts`, WebSocket connection management in `connection.ts`. Communicates with the AI agent over stdio and with the WebSocket relay via `ws`. Each request gets a UUID, is tracked in a `pendingRequests` Map with timeout/promise callbacks, and resolves when the plugin responds.
 
 ### WebSocket Relay (`src/socket.ts`)
 Lightweight Bun WebSocket server on port 3055 (configurable via `PORT` env). Routes messages between MCP server and Figma plugin using channel-based isolation. Clients call `join` to enter a channel; messages broadcast only within the same channel. Exposes `GET /channels` HTTP endpoint for auto-discovery of active channels.
@@ -44,7 +44,7 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 - `src/commands/modify.js` — setFillColor, moveNode, deleteNode, cloneAndModify, etc.
 - `src/commands/text.js` — setTextContent, setMultipleTextContents
 - `src/commands/layout.js` — setLayoutMode, setPadding, setAxisAlign, setLayoutSizing, setItemSpacing
-- `src/commands/components.js` — createComponent, combineAsVariants, instance overrides, etc.
+- `src/commands/components.js` — createComponent, combineAsVariants, instance overrides, component properties, exposed instances, etc.
 - `src/commands/scan.js` — scanTextNodes, scanNodesByTypes, annotations
 - `src/commands/styles.js` — getStyles, getLocalVariables, bindVariable, batchSetTextStyles, etc.
 - `src/commands/connections.js` — setDefaultConnector, createConnections, setFocus, setSelections
@@ -64,6 +64,7 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 - **Layout inspection**: `get_node_info` and `read_my_design` return auto-layout properties (layoutMode, sizing modes, alignment, spacing, padding, layoutWrap) on frames with active auto-layout. Default values (MIN alignment, zero spacing/padding, NO_WRAP) are omitted to keep output concise.
 - **Design tokens**: Use `get_local_variables` to discover variables, then `batch_bind_variables` to bind them to node properties in bulk. For single bindings, `bind_variable` also works. Color variables bind via `setBoundVariableForPaint`; scalar variables bind via `setBoundVariable`.
 - **Text styles**: Use `get_styles` to discover text styles, then `batch_set_text_styles` to apply them to multiple text nodes at once (deduplicates font loading). For single nodes, `set_text_style` also works.
+- **Component properties**: Use `get_component_properties` to discover property definitions (names with #suffix, types, defaults). Then `add_component_property` to add BOOLEAN/TEXT/INSTANCE_SWAP/VARIANT properties, `edit_component_property` to rename or change defaults, `delete_component_property` to remove. BOOLEAN defaults are real booleans; all others are strings. Use `set_exposed_instance` on a nested INSTANCE to create a slot.
 - **Comments**: Use `get_comments`, `post_comment`, `delete_comment` to read/write Figma file comments via REST API. Requires `FIGMA_API_TOKEN` with `file_comments:read` and `file_comments:write` scopes. The `fileKey` param comes from the Figma URL: `https://www.figma.com/design/<fileKey>/...`
 
 ## Figma Design Patterns

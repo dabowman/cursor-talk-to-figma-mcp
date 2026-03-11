@@ -552,6 +552,218 @@ server.tool(
   },
 );
 
+// Get Component Properties Tool
+server.tool(
+  "get_component_properties",
+  "Get all property definitions from a COMPONENT or COMPONENT_SET. Returns property names (with #suffix for non-variant properties), types (BOOLEAN, TEXT, INSTANCE_SWAP, VARIANT), default values, variant options, and preferred values. Essential for discovering property names before mutation.",
+  {
+    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
+  },
+  async ({ nodeId }: any) => {
+    try {
+      const result = await sendCommandToFigma("get_component_properties", { nodeId });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting component properties: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Add Component Property Tool
+server.tool(
+  "add_component_property",
+  "Add a new property to a COMPONENT or COMPONENT_SET. Supports BOOLEAN (toggle layer visibility), TEXT (editable text), INSTANCE_SWAP (nested instance swap with optional preferred values), and VARIANT (variant dimension on component sets). Returns the full property name with auto-generated #suffix.",
+  {
+    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
+    name: z.string().describe("Property name (e.g. 'Show Icon', 'Label', 'Size')"),
+    type: z
+      .enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"])
+      .describe("Property type"),
+    defaultValue: z
+      .union([z.string(), z.boolean()])
+      .describe(
+        "Default value. Boolean for BOOLEAN type, string for TEXT/VARIANT, node ID for INSTANCE_SWAP.",
+      ),
+    preferredValues: z
+      .array(
+        z.object({
+          type: z.enum(["COMPONENT", "COMPONENT_SET"]).describe("Value type"),
+          key: z.string().describe("Component key"),
+        }),
+      )
+      .optional()
+      .describe("Preferred values for INSTANCE_SWAP properties (curated shortlist in picker)"),
+  },
+  async ({ nodeId, name, type, defaultValue, preferredValues }: any) => {
+    try {
+      const result = await sendCommandToFigma("add_component_property", {
+        nodeId,
+        name,
+        type,
+        defaultValue,
+        preferredValues,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error adding component property: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Edit Component Property Tool
+server.tool(
+  "edit_component_property",
+  "Edit an existing property definition on a COMPONENT or COMPONENT_SET. Can rename, change default value, or update preferred values. Use get_component_properties first to discover the full property name (with #suffix).",
+  {
+    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
+    propertyName: z
+      .string()
+      .describe("Full property name including #suffix (e.g. 'Label#12:0')"),
+    newName: z.string().optional().describe("New name for the property"),
+    defaultValue: z
+      .union([z.string(), z.boolean()])
+      .optional()
+      .describe("New default value"),
+    preferredValues: z
+      .array(
+        z.object({
+          type: z.enum(["COMPONENT", "COMPONENT_SET"]).describe("Value type"),
+          key: z.string().describe("Component key"),
+        }),
+      )
+      .optional()
+      .describe("New preferred values for INSTANCE_SWAP properties"),
+  },
+  async ({ nodeId, propertyName, newName, defaultValue, preferredValues }: any) => {
+    try {
+      const result = await sendCommandToFigma("edit_component_property", {
+        nodeId,
+        propertyName,
+        newName,
+        defaultValue,
+        preferredValues,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error editing component property: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Delete Component Property Tool
+server.tool(
+  "delete_component_property",
+  "Delete a property from a COMPONENT or COMPONENT_SET. Use get_component_properties first to discover the full property name (with #suffix).",
+  {
+    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
+    propertyName: z
+      .string()
+      .describe("Full property name including #suffix (e.g. 'Label#12:0')"),
+  },
+  async ({ nodeId, propertyName }: any) => {
+    try {
+      const result = await sendCommandToFigma("delete_component_property", {
+        nodeId,
+        propertyName,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error deleting component property: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+// Set Exposed Instance (Slot) Tool
+server.tool(
+  "set_exposed_instance",
+  "Set isExposedInstance on a nested INSTANCE inside a COMPONENT, creating or removing a slot. When exposed, instance users can freely add/rearrange layers in that area (like React children/slot pattern).",
+  {
+    nodeId: z.string().describe("The ID of the INSTANCE node inside a component"),
+    exposed: z.boolean().describe("Whether to expose this instance as a slot"),
+  },
+  async ({ nodeId, exposed }: any) => {
+    try {
+      const result = await sendCommandToFigma("set_exposed_instance", {
+        nodeId,
+        exposed,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error setting exposed instance: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
 // Bind Variable Tool
 server.tool(
   "bind_variable",

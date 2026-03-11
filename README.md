@@ -1,6 +1,6 @@
 # Talk to Figma MCP
 
-MCP server that bridges AI agents (Claude Code, Cursor) with Figma through a WebSocket relay and Figma plugin. Forked from [sonnylazuardi/cursor-talk-to-figma-mcp](https://github.com/sonnylazuardi/cursor-talk-to-figma-mcp) with significant additions: 62 tools, design token binding, batch operations, component management, library access, file comments, plugin concurrency control, and sub-agent orchestration.
+MCP server that bridges AI agents (Claude Code, Cursor) with Figma through a WebSocket relay and Figma plugin. Forked from [sonnylazuardi/cursor-talk-to-figma-mcp](https://github.com/sonnylazuardi/cursor-talk-to-figma-mcp) with significant additions: 67 tools, design token binding, batch operations, component property management, library access, file comments, plugin concurrency control, and sub-agent orchestration.
 
 ```
 AI Agent <-(stdio)-> MCP Server <-(WebSocket)-> Relay <-(WebSocket)-> Figma Plugin

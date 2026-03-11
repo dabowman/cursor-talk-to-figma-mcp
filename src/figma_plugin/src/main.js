@@ -51,6 +51,11 @@ import {
   getValidTargetInstances,
   getSourceInstanceData,
   setInstanceOverrides,
+  getComponentProperties,
+  addComponentProperty,
+  editComponentProperty,
+  deleteComponentProperty,
+  setExposedInstance,
 } from "./commands/components.js";
 
 // Command imports — scan & annotations
@@ -100,6 +105,7 @@ var READ_OPS = {
   get_component_variants: true,
   get_instance_overrides: true,
   get_main_component: true,
+  get_component_properties: true,
   export_node_as_image: true,
   set_selections: true,
   set_focus: true,
@@ -358,6 +364,16 @@ async function handleCommand(command, params) {
       return await cloneAndModify(params);
     case "get_main_component":
       return await getMainComponent(params);
+    case "get_component_properties":
+      return await getComponentProperties(params);
+    case "add_component_property":
+      return await addComponentProperty(params);
+    case "edit_component_property":
+      return await editComponentProperty(params);
+    case "delete_component_property":
+      return await deleteComponentProperty(params);
+    case "set_exposed_instance":
+      return await setExposedInstance(params);
     case "bind_variable":
       return await bindVariable(params);
     case "batch_bind_variables":
