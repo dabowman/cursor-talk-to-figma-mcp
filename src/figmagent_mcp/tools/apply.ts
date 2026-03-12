@@ -44,13 +44,22 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
     nodeId: z.string().describe("ID of the existing node to modify"),
 
     // Visual properties (direct values)
-    fillColor: colorSchema.describe("Fill color"),
+    fillColor: colorSchema.describe("Fill color (also sets font color on TEXT nodes)"),
     strokeColor: colorSchema.describe("Stroke color"),
     strokeWeight: z.number().positive().optional().describe("Stroke weight"),
     cornerRadius: z.number().min(0).optional().describe("Corner radius"),
     opacity: z.number().min(0).max(1).optional().describe("Node opacity (0-1)"),
     width: z.number().positive().optional().describe("Width (resizes the node)"),
     height: z.number().positive().optional().describe("Height (resizes the node)"),
+
+    // Font properties (TEXT nodes only — loads fonts automatically)
+    fontFamily: z.string().optional().describe("Font family (e.g. 'Inter', 'Space Grotesk'). TEXT nodes only."),
+    fontWeight: z
+      .number()
+      .optional()
+      .describe("Font weight (100-900, e.g. 400=Regular, 600=Semi Bold, 700=Bold). TEXT nodes only."),
+    fontSize: z.number().positive().optional().describe("Font size in pixels. TEXT nodes only."),
+    fontColor: colorSchema.describe("Font color (convenience alias for fillColor on TEXT nodes)."),
 
     // Layout properties
     layoutMode: z.enum(["NONE", "HORIZONTAL", "VERTICAL"]).optional().describe("Auto-layout direction"),
@@ -88,9 +97,9 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
 // Apply Tool — unified property application for existing nodes
 server.tool(
   "apply",
-  `Apply visual properties, layout settings, design token variables, and text styles to one or more existing nodes.
+  `Apply visual properties, font properties, layout settings, design token variables, and text styles to one or more existing nodes.
 
-Replaces individual tools for fill color, stroke, corner radius, layout mode, padding, alignment, sizing, spacing, variable binding, and text style application.
+Handles fill color, stroke, corner radius, opacity, width, height, font family/weight/size/color, layout mode, padding, alignment, sizing, spacing, variable bindings, and text style application.
 
 For a single node:
   { nodes: [{ nodeId: "123", fillColor: { r: 1, g: 0, b: 0 } }] }
@@ -101,15 +110,22 @@ For multiple nodes:
     { nodeId: "456", textStyleId: "S:style123," }
   ]}
 
+Change fonts on existing TEXT nodes (never delete and recreate text just to change font):
+  { nodes: [
+    { nodeId: "title", fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 32 },
+    { nodeId: "body", fontFamily: "Inter", fontWeight: 400, fontSize: 15, fontColor: { r: 0.3, g: 0.3, b: 0.3 } }
+  ]}
+
 For nested structures (mirrors create tool pattern):
   { nodes: [{ nodeId: "parent", layoutMode: "VERTICAL", paddingTop: 16, children: [
     { nodeId: "child1", variables: { fill: "VariableID:abc" } },
     { nodeId: "child2", textStyleId: "S:style123," }
   ]}]}
 
-Execution order per node: layout mode → direct values → variable bindings → text style.
+Execution order per node: layout mode → direct values → font properties → variable bindings → text style.
 Variable bindings override direct values (set both to get a fallback + token).
-Width and height resize the node. Use variables.width/height to bind dimension tokens.`,
+Width and height resize the node. Use variables.width/height to bind dimension tokens.
+Font properties load fonts automatically. fontColor is a convenience alias for fillColor on TEXT nodes.`,
   {
     nodes: z
       .array(nodeOpSchema)

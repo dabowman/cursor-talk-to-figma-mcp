@@ -104,6 +104,7 @@ async function processNode(op, styleCache) {
 
   // Phase 2: Direct values
   if (op.fillColor && "fills" in node) applyFillColor(node, op.fillColor);
+  if (op.fontColor && node.type === "TEXT") applyFillColor(node, op.fontColor);
   if (op.strokeColor && "strokes" in node) applyStrokeColor(node, op.strokeColor);
   if (op.strokeWeight !== undefined && "strokeWeight" in node) node.strokeWeight = toNumber(op.strokeWeight, 1);
   if (op.cornerRadius !== undefined && "cornerRadius" in node) node.cornerRadius = toNumber(op.cornerRadius, 0);
@@ -115,6 +116,59 @@ async function processNode(op, styleCache) {
     node.resize(toNumber(op.width, node.width), node.height);
   } else if (op.height !== undefined && "resize" in node) {
     node.resize(node.width, toNumber(op.height, node.height));
+  }
+
+  // Phase 2.5: Font properties (TEXT nodes only — load current font first, then apply new one)
+  if (node.type === "TEXT" && (op.fontFamily || op.fontWeight || op.fontSize)) {
+    // Load current font to allow property mutations
+    if (node.fontName !== figma.mixed) {
+      await figma.loadFontAsync(node.fontName);
+    } else {
+      const len = node.characters.length;
+      const fontsToLoad = {};
+      for (let i = 0; i < len; i++) {
+        const f = node.getRangeFontName(i, i + 1);
+        const key = f.family + ":" + f.style;
+        if (!fontsToLoad[key]) fontsToLoad[key] = f;
+      }
+      const fontEntries = Object.keys(fontsToLoad);
+      for (let j = 0; j < fontEntries.length; j++) {
+        await figma.loadFontAsync(fontsToLoad[fontEntries[j]]);
+      }
+    }
+
+    const weightMap = {
+      100: "Thin",
+      200: "Extra Light",
+      300: "Light",
+      400: "Regular",
+      500: "Medium",
+      600: "Semi Bold",
+      700: "Bold",
+      800: "Extra Bold",
+      900: "Black",
+    };
+
+    const family = op.fontFamily || (node.fontName !== figma.mixed ? node.fontName.family : "Inter");
+    const currentStyle = node.fontName !== figma.mixed ? node.fontName.style : "Regular";
+    const styleName = op.fontWeight ? weightMap[toNumber(op.fontWeight, 400)] || "Regular" : currentStyle;
+
+    try {
+      await figma.loadFontAsync({ family: family, style: styleName });
+      node.fontName = { family: family, style: styleName };
+    } catch (_fontErr) {
+      // If exact weight not available, try Regular for the family
+      try {
+        await figma.loadFontAsync({ family: family, style: "Regular" });
+        node.fontName = { family: family, style: "Regular" };
+      } catch (_fallbackErr) {
+        // Keep current font if family not available at all
+      }
+    }
+
+    if (op.fontSize !== undefined) {
+      node.fontSize = toNumber(op.fontSize, 14);
+    }
   }
 
   // Layout direct values (require layoutMode !== "NONE")
