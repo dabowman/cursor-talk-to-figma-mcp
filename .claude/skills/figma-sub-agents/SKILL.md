@@ -101,7 +101,7 @@ The agent definition lives at `.claude/agents/figma-discovery.md`. It has:
 - A read-only tool set (no create/modify tools)
 - A system prompt with its full workflow and output schema
 
-**Tools available to the agent:** `join_channel`, `get`, `scan_text_nodes`, `get_local_variables`, `get_styles`, `get_local_components`, `get_main_component` (plus `ToolSearch` to load them)
+**Tools available to the agent:** `join_channel`, `get`, `scan_text_nodes`, `get_local_variables`, `get_styles`, `get_local_components` (plus `ToolSearch` to load them). Note: `get_main_component` is no longer needed — `get` includes component metadata in `defs.components`.
 
 ### Spawning the Agent
 
@@ -144,7 +144,7 @@ if (discovery.status === "blocked") {
   // Variant children now include:
   //   layoutMode       → auto-layout direction (if active)
   //   boundVariables   → list of bound field names (e.g. ["fill", "cornerRadius"])
-  //   componentName/Id → resolved for INSTANCE nodes via get_main_component
+  //   componentName/Id → resolved for INSTANCE nodes via defs.components in FSGN
 }
 ```
 
@@ -229,7 +229,7 @@ ${buildSpec}
 RULES:
 - Use create for complex structures (reduces many calls to 1)
 - Use clone_node + clone_and_modify when duplicating existing patterns
-- Use create_component_instance with componentId for reusing library parts
+- Use create with type="INSTANCE" and componentId for reusing library parts
 - After creating nodes, verify with get(nodeId, detail="structure") that structure matches spec
 - Return JSON: {"status": "success", "created_nodes": [...ids], "summary": "..."}
 - If any tool fails twice on the same call, stop and return: {"status": "blocked", "error": "...", "last_tool": "...", "recommendation": "..."}

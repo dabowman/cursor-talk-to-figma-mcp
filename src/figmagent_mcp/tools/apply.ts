@@ -83,6 +83,20 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
         "Map of field names to variable IDs. Binds design tokens to node properties. Fields: fill, stroke, cornerRadius, padding*, itemSpacing, width, height, opacity, visible, characters, etc.",
       ),
 
+    // Component operations (INSTANCE nodes only)
+    swapVariantId: z
+      .string()
+      .optional()
+      .describe(
+        "Swap an INSTANCE to a different variant. Value is the COMPONENT node ID to swap to. Instance keeps position and compatible overrides.",
+      ),
+    isExposedInstance: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set isExposedInstance on a nested INSTANCE inside a COMPONENT. Surfaces the instance's properties at the parent level.",
+      ),
+
     // Style references
     textStyleId: z.string().optional().describe("Text style ID to apply (from get_styles). Loads fonts automatically."),
     effectStyleId: z.string().optional().describe("Effect style ID to apply (from get_design_system). Applies drop shadows, inner shadows, blurs."),
@@ -98,9 +112,9 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
 // Apply Tool — unified property application for existing nodes
 server.tool(
   "apply",
-  `Apply visual properties, font properties, layout settings, design token variables, and text styles to one or more existing nodes.
+  `Apply visual properties, font properties, layout settings, design token variables, text styles, and component operations to one or more existing nodes.
 
-Handles fill color, stroke, corner radius, opacity, width, height, font family/weight/size/color, layout mode, padding, alignment, sizing, spacing, variable bindings, and text style application.
+Handles fill color, stroke, corner radius, opacity, width, height, font family/weight/size/color, layout mode, padding, alignment, sizing, spacing, variable bindings, text style application, variant swapping (swapVariantId), and exposed instances (isExposedInstance).
 
 For a single node:
   { nodes: [{ nodeId: "123", fillColor: { r: 1, g: 0, b: 0 } }] }
@@ -123,7 +137,13 @@ For nested structures (mirrors create tool pattern):
     { nodeId: "child2", textStyleId: "S:style123," }
   ]}]}
 
-Execution order per node: layout mode → direct values → font properties → variable bindings → text style → effect style.
+Swap an instance to a different variant (keeps position and compatible overrides):
+  { nodes: [{ nodeId: "instance1", swapVariantId: "targetComponentId" }] }
+
+Expose a nested instance's properties at the parent component level:
+  { nodes: [{ nodeId: "nestedInstance", isExposedInstance: true }] }
+
+Execution order per node: component ops → layout mode → direct values → font properties → variable bindings → text style → effect style.
 Variable bindings override direct values (set both to get a fallback + token).
 Width and height resize the node. Use variables.width/height to bind dimension tokens.
 Font properties load fonts automatically. fontColor is a convenience alias for fillColor on TEXT nodes.

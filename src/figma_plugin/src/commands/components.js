@@ -292,6 +292,61 @@ export async function deleteComponentProperty(params) {
   };
 }
 
+export async function componentProperties(params) {
+  const { nodeId, operations } = params || {};
+  if (!nodeId) throw new Error("Missing nodeId parameter");
+  if (!operations || !Array.isArray(operations) || operations.length === 0) {
+    throw new Error("Missing or empty operations array");
+  }
+
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) throw new Error("Node not found: " + nodeId);
+  if (node.type !== "COMPONENT" && node.type !== "COMPONENT_SET") {
+    throw new Error("Node must be a COMPONENT or COMPONENT_SET, got: " + node.type);
+  }
+
+  const results = [];
+  for (let i = 0; i < operations.length; i++) {
+    const op = operations[i];
+    try {
+      if (op.action === "add") {
+        if (!op.name || !op.type || op.defaultValue === undefined) {
+          throw new Error("add requires name, type, and defaultValue");
+        }
+        const options = {};
+        if (op.preferredValues && Array.isArray(op.preferredValues)) {
+          options.preferredValues = op.preferredValues;
+        }
+        const fullName = node.addComponentProperty(op.name, op.type, op.defaultValue, options);
+        results.push({ success: true, action: "add", propertyName: fullName });
+      } else if (op.action === "edit") {
+        if (!op.propertyName) throw new Error("edit requires propertyName");
+        const edits = {};
+        if (op.newName !== undefined) edits.name = op.newName;
+        if (op.defaultValue !== undefined) edits.defaultValue = op.defaultValue;
+        if (op.preferredValues !== undefined) edits.preferredValues = op.preferredValues;
+        node.editComponentProperty(op.propertyName, edits);
+        results.push({ success: true, action: "edit", propertyName: op.propertyName });
+      } else if (op.action === "delete") {
+        if (!op.propertyName) throw new Error("delete requires propertyName");
+        node.deleteComponentProperty(op.propertyName);
+        results.push({ success: true, action: "delete", propertyName: op.propertyName });
+      } else {
+        throw new Error("Unknown action: " + op.action + ". Use add, edit, or delete.");
+      }
+    } catch (e) {
+      results.push({ success: false, action: op.action || "unknown", error: e.message || String(e) });
+    }
+  }
+
+  return {
+    id: node.id,
+    name: node.name,
+    results: results,
+    componentPropertyDefinitions: node.componentPropertyDefinitions,
+  };
+}
+
 export async function setExposedInstance(params) {
   const { nodeId, exposed } = params || {};
   if (!nodeId) throw new Error("Missing nodeId parameter");

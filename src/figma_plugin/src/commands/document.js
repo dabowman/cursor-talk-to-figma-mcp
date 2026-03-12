@@ -321,6 +321,11 @@ async function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVa
     }
   }
 
+  // component property definitions (COMPONENT and COMPONENT_SET nodes)
+  if ((n.type === "COMPONENT" || n.type === "COMPONENT_SET") && n.componentPropertyDefinitions) {
+    out.componentPropertyDefinitions = n.componentPropertyDefinitions;
+  }
+
   // variant properties (COMPONENT nodes)
   if (n.variantProperties) {
     out.variantProperties = n.variantProperties;
@@ -537,6 +542,7 @@ export async function getNodeTree(params) {
             id: cid,
             name: comp.name,
             key: comp.key || null,
+            description: comp.description || null,
             parentType: comp.parent ? comp.parent.type : null,
             parentName: comp.parent ? comp.parent.name : null,
           };

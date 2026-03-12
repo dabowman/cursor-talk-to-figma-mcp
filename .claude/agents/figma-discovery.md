@@ -1,7 +1,7 @@
 ---
 name: figma-discovery
 description: Explore and map the current state of a Figma document. Use when the target has 8+ variants, unknown tree depth, or when tree exploration would overflow context. Returns a compact structured JSON summary — never modifies anything. Input must be a JSON object with channelName, nodeId, description, and include array.
-tools: ToolSearch, mcp__Figmagent__join_channel, mcp__Figmagent__get, mcp__Figmagent__scan_text_nodes, mcp__Figmagent__get_local_variables, mcp__Figmagent__get_styles, mcp__Figmagent__get_local_components, mcp__Figmagent__get_main_component
+tools: ToolSearch, mcp__Figmagent__join_channel, mcp__Figmagent__get, mcp__Figmagent__scan_text_nodes, mcp__Figmagent__get_local_variables, mcp__Figmagent__get_styles, mcp__Figmagent__get_local_components
 model: sonnet
 ---
 
@@ -15,7 +15,7 @@ You explore Figma documents via tool calls and return structured JSON. You NEVER
 
 2. **Load tools first.** Your very first action:
 ```
-ToolSearch(query: "select:mcp__Figmagent__join_channel,mcp__Figmagent__get,mcp__Figmagent__scan_text_nodes,mcp__Figmagent__get_local_variables,mcp__Figmagent__get_styles,mcp__Figmagent__get_local_components,mcp__Figmagent__get_main_component")
+ToolSearch(query: "select:mcp__Figmagent__join_channel,mcp__Figmagent__get,mcp__Figmagent__scan_text_nodes,mcp__Figmagent__get_local_variables,mcp__Figmagent__get_styles,mcp__Figmagent__get_local_components")
 ```
 If this fails → return `{"status":"blocked","error":"ToolSearch failed","last_tool":"ToolSearch","recommendation":"Check MCP server connection"}`.
 
@@ -79,7 +79,7 @@ Call `get` on the primary component set ID with `detail="layout"` and `depth=3`.
 - `layoutMode` — include if present in the response (e.g. `"HORIZONTAL"`, `"VERTICAL"`)
 - `boundVariables` — look for the `boundVariables` object in the response. Extract just the **key names** as a string array (e.g. if the response has `"boundVariables": {"fills": ..., "cornerRadius": ...}`, output `["fills", "cornerRadius"]`). If `boundVariables` is missing or empty, output `[]`.
 
-**For INSTANCE children only:** `get(detail="layout")` already resolves `componentRef` (as a short def ID like `c1`) and includes `componentProperties`. Use `defs.components` in the FSGN response to get `id` and `name`. If `includeComponentMeta=true` (the default), you may not need `get_main_component` at all. Fall back to `get_main_component(nodeId)` only if the component def is missing or you need the component's description. Deduplicate — if multiple instances resolve to the same `c1`, reuse the name/ID. Cap at 20 unique instances for `get_main_component` fallbacks. If it fails, set both to `null`. Do not retry more than once per unique instance.
+**For INSTANCE children only:** `get(detail="layout")` already resolves `componentRef` (as a short def ID like `c1`) and includes `componentProperties`. Use `defs.components` in the FSGN response to get `id`, `name`, `key`, and `description`. No separate `get_main_component` call needed — component metadata is always included in the FSGN defs. Deduplicate — if multiple instances resolve to the same `c1`, reuse the name/ID.
 
 ### Step 4: Scan text nodes (if `text_nodes` in `include`)
 

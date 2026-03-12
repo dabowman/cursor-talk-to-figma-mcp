@@ -53,6 +53,7 @@ import {
   editComponentProperty,
   deleteComponentProperty,
   setExposedInstance,
+  componentProperties,
 } from "./commands/components.js";
 
 // Command imports — scan & annotations
@@ -129,6 +130,7 @@ var GLOBAL_OPS = {
   update_variables: true,
   create_styles: true,
   update_styles: true,
+  component_properties: true,
 };
 
 // Node-level write locks
@@ -381,6 +383,8 @@ async function handleCommand(command, params) {
       return await deleteComponentProperty(params);
     case "set_exposed_instance":
       return await setExposedInstance(params);
+    case "component_properties":
+      return await componentProperties(params);
     case "lint_design":
       return await lintDesign(params);
     default:

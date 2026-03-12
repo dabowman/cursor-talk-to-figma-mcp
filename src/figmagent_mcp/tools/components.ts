@@ -61,49 +61,6 @@ server.tool(
   },
 );
 
-// Create Component Tool
-server.tool(
-  "create_component",
-  "Create a new COMPONENT node in Figma. Use this to build variant components that can later be combined into a COMPONENT_SET with combine_as_variants.",
-  {
-    x: z.number().describe("X position"),
-    y: z.number().describe("Y position"),
-    width: z.number().positive().optional().describe("Width (default 100)"),
-    height: z.number().positive().optional().describe("Height (default 100)"),
-    name: z.string().optional().describe("Component name (e.g. 'Layout=Table')"),
-    parentId: z.string().optional().describe("Optional parent node ID"),
-  },
-  async ({ x, y, width, height, name, parentId }: any) => {
-    try {
-      const result = await sendCommandToFigma("create_component", {
-        x,
-        y,
-        width,
-        height,
-        name,
-        parentId,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error creating component: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
 // Combine as Variants Tool
 server.tool(
   "combine_as_variants",
@@ -139,38 +96,68 @@ server.tool(
   },
 );
 
-// Create Component Instance Tool
+// Component Properties Tool — batch add/edit/delete property definitions
 server.tool(
-  "create_component_instance",
-  "Create an instance of a component in Figma. Use componentId for local/unpublished components (node ID), or componentKey for published library components (hash key).",
+  "component_properties",
+  `Batch add, edit, and delete property definitions on a COMPONENT or COMPONENT_SET. Use get(nodeId, detail="layout") to discover existing property definitions first (componentPropertyDefinitions is included in FSGN output).
+
+Operations:
+  - add: Create a new property. Requires name, type (BOOLEAN/TEXT/INSTANCE_SWAP/VARIANT), defaultValue. Optional: preferredValues for INSTANCE_SWAP.
+  - edit: Modify an existing property. Requires propertyName (full name with #suffix). Optional: newName, defaultValue, preferredValues.
+  - delete: Remove a property. Requires propertyName (full name with #suffix).
+
+Example — add two properties and rename one:
+  { nodeId: "123:456", operations: [
+    { action: "add", name: "Show Icon", type: "BOOLEAN", defaultValue: true },
+    { action: "add", name: "Label", type: "TEXT", defaultValue: "Button" },
+    { action: "edit", propertyName: "OldName#12:0", newName: "NewName" }
+  ]}
+
+Returns updated componentPropertyDefinitions after all operations.`,
   {
-    componentKey: z
-      .string()
-      .optional()
-      .describe("Key of a published component to instantiate (use for library components)"),
-    componentId: z
-      .string()
-      .optional()
-      .describe("Node ID of a local COMPONENT to instantiate (use for unpublished components)"),
-    x: z.number().optional().describe("X position (default 0)"),
-    y: z.number().optional().describe("Y position (default 0)"),
-    parentId: z.string().optional().describe("Optional parent node ID to place the instance into"),
+    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
+    operations: z
+      .array(
+        z.object({
+          action: z.enum(["add", "edit", "delete"]).describe("Operation type"),
+          // For add:
+          name: z.string().optional().describe("Property name (for add)"),
+          type: z
+            .enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"])
+            .optional()
+            .describe("Property type (for add)"),
+          defaultValue: z
+            .union([z.string(), z.boolean()])
+            .optional()
+            .describe("Default value (for add/edit). Boolean for BOOLEAN, string for TEXT/VARIANT, node ID for INSTANCE_SWAP."),
+          // For edit/delete:
+          propertyName: z
+            .string()
+            .optional()
+            .describe("Full property name including #suffix (for edit/delete)"),
+          newName: z.string().optional().describe("New name for the property (for edit)"),
+          preferredValues: z
+            .array(
+              z.object({
+                type: z.enum(["COMPONENT", "COMPONENT_SET"]).describe("Value type"),
+                key: z.string().describe("Component key"),
+              }),
+            )
+            .optional()
+            .describe("Preferred values for INSTANCE_SWAP properties (for add/edit)"),
+        }),
+      )
+      .min(1)
+      .describe("Array of property operations to execute in order"),
   },
-  async ({ componentKey, componentId, x, y, parentId }: any) => {
+  async ({ nodeId, operations }: any) => {
     try {
-      const result = await sendCommandToFigma("create_component_instance", {
-        componentKey,
-        componentId,
-        x,
-        y,
-        parentId,
-      });
-      const typedResult = result as any;
+      const result = await sendCommandToFigma("component_properties", { nodeId, operations });
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(typedResult),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -179,7 +166,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error creating component instance: ${error instanceof Error ? error.message : String(error)}`,
+            text: `Error modifying component properties: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       };
@@ -274,274 +261,6 @@ server.tool(
           {
             type: "text",
             text: `Error setting instance overrides: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Swap Component Variant Tool
-server.tool(
-  "swap_component_variant",
-  "Swap an instance to a different variant within the same component set (e.g. change 'Bulk selection=False' to 'Bulk selection=True'). The instance keeps its position and overrides where compatible. newVariantId must be a COMPONENT node inside the same COMPONENT_SET.",
-  {
-    instanceId: z.string().describe("ID of the instance node to update"),
-    newVariantId: z.string().describe("ID of the target COMPONENT variant to swap to"),
-  },
-  async ({ instanceId, newVariantId }: any) => {
-    try {
-      const result = await sendCommandToFigma("swap_component_variant", {
-        instanceId,
-        newVariantId,
-      });
-      const typedResult = result as any;
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(typedResult),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error swapping component variant: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Get Component Properties Tool
-server.tool(
-  "get_component_properties",
-  "Get all property definitions from a COMPONENT or COMPONENT_SET. Returns property names (with #suffix for non-variant properties), types (BOOLEAN, TEXT, INSTANCE_SWAP, VARIANT), default values, variant options, and preferred values. Essential for discovering property names before mutation.",
-  {
-    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
-  },
-  async ({ nodeId }: any) => {
-    try {
-      const result = await sendCommandToFigma("get_component_properties", { nodeId });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting component properties: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Add Component Property Tool
-server.tool(
-  "add_component_property",
-  "Add a new property to a COMPONENT or COMPONENT_SET. Supports BOOLEAN (toggle layer visibility), TEXT (editable text), INSTANCE_SWAP (nested instance swap with optional preferred values), and VARIANT (variant dimension on component sets). Returns the full property name with auto-generated #suffix.",
-  {
-    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
-    name: z.string().describe("Property name (e.g. 'Show Icon', 'Label', 'Size')"),
-    type: z.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"]).describe("Property type"),
-    defaultValue: z
-      .union([z.string(), z.boolean()])
-      .describe("Default value. Boolean for BOOLEAN type, string for TEXT/VARIANT, node ID for INSTANCE_SWAP."),
-    preferredValues: z
-      .array(
-        z.object({
-          type: z.enum(["COMPONENT", "COMPONENT_SET"]).describe("Value type"),
-          key: z.string().describe("Component key"),
-        }),
-      )
-      .optional()
-      .describe("Preferred values for INSTANCE_SWAP properties (curated shortlist in picker)"),
-  },
-  async ({ nodeId, name, type, defaultValue, preferredValues }: any) => {
-    try {
-      const result = await sendCommandToFigma("add_component_property", {
-        nodeId,
-        name,
-        type,
-        defaultValue,
-        preferredValues,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error adding component property: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Edit Component Property Tool
-server.tool(
-  "edit_component_property",
-  "Edit an existing property definition on a COMPONENT or COMPONENT_SET. Can rename, change default value, or update preferred values. Use get_component_properties first to discover the full property name (with #suffix).",
-  {
-    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
-    propertyName: z.string().describe("Full property name including #suffix (e.g. 'Label#12:0')"),
-    newName: z.string().optional().describe("New name for the property"),
-    defaultValue: z.union([z.string(), z.boolean()]).optional().describe("New default value"),
-    preferredValues: z
-      .array(
-        z.object({
-          type: z.enum(["COMPONENT", "COMPONENT_SET"]).describe("Value type"),
-          key: z.string().describe("Component key"),
-        }),
-      )
-      .optional()
-      .describe("New preferred values for INSTANCE_SWAP properties"),
-  },
-  async ({ nodeId, propertyName, newName, defaultValue, preferredValues }: any) => {
-    try {
-      const result = await sendCommandToFigma("edit_component_property", {
-        nodeId,
-        propertyName,
-        newName,
-        defaultValue,
-        preferredValues,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error editing component property: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Delete Component Property Tool
-server.tool(
-  "delete_component_property",
-  "Delete a property from a COMPONENT or COMPONENT_SET. Use get_component_properties first to discover the full property name (with #suffix).",
-  {
-    nodeId: z.string().describe("The ID of the COMPONENT or COMPONENT_SET node"),
-    propertyName: z.string().describe("Full property name including #suffix (e.g. 'Label#12:0')"),
-  },
-  async ({ nodeId, propertyName }: any) => {
-    try {
-      const result = await sendCommandToFigma("delete_component_property", {
-        nodeId,
-        propertyName,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error deleting component property: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Set Exposed Instance Tool
-server.tool(
-  "set_exposed_instance",
-  "Set isExposedInstance on a nested INSTANCE inside a COMPONENT. When exposed, the nested instance's component properties are surfaced at the parent component level, so users don't need to deep-select to find them. This is NOT the same as Figma's 'Slot' feature (which allows free content insertion and has no plugin API support).",
-  {
-    nodeId: z.string().describe("The ID of the INSTANCE node inside a component"),
-    exposed: z.boolean().describe("Whether to expose this instance's properties at the parent level"),
-  },
-  async ({ nodeId, exposed }: any) => {
-    try {
-      const result = await sendCommandToFigma("set_exposed_instance", {
-        nodeId,
-        exposed,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error setting exposed instance: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Get Main Component Tool
-server.tool(
-  "get_main_component",
-  "Get the main component of an instance node. Use this to find the source component when you have an instance, preventing instance-vs-component confusion.",
-  {
-    nodeId: z.string().describe("The ID of the instance node"),
-  },
-  async ({ nodeId }: any) => {
-    try {
-      const result = await sendCommandToFigma("get_main_component", { nodeId });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting main component: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       };

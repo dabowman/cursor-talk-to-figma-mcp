@@ -91,6 +91,23 @@ export async function create(params) {
       }
     } else if (nodeType === "RECTANGLE") {
       node = figma.createRectangle();
+    } else if (nodeType === "INSTANCE") {
+      // Instantiate from componentId (local) or componentKey (library)
+      let component;
+      if (spec.componentId) {
+        const compNode = await figma.getNodeByIdAsync(spec.componentId);
+        if (!compNode) throw new Error("Component node not found: " + spec.componentId);
+        if (compNode.type !== "COMPONENT")
+          throw new Error("Node is not a COMPONENT: " + spec.componentId + " (type: " + compNode.type + ")");
+        component = compNode;
+      } else if (spec.componentKey) {
+        component = await figma.importComponentByKeyAsync(spec.componentKey);
+      } else {
+        throw new Error("INSTANCE type requires componentId or componentKey");
+      }
+      node = component.createInstance();
+    } else if (nodeType === "COMPONENT") {
+      node = figma.createComponent();
     } else {
       node = figma.createFrame();
     }
@@ -117,7 +134,7 @@ export async function create(params) {
       node.strokeWeight = toNumber(spec.strokeWeight, 1);
     }
 
-    if (nodeType === "FRAME" && spec.layoutMode && spec.layoutMode !== "NONE") {
+    if ((nodeType === "FRAME" || nodeType === "COMPONENT") && spec.layoutMode && spec.layoutMode !== "NONE") {
       node.layoutMode = spec.layoutMode;
       if (spec.layoutWrap) node.layoutWrap = spec.layoutWrap;
       if (spec.paddingTop !== undefined) node.paddingTop = toNumber(spec.paddingTop, 0);
@@ -163,7 +180,7 @@ export async function create(params) {
     }
 
     // Two-pass: set layout sizing AFTER children exist
-    if (nodeType === "FRAME" && spec.layoutMode && spec.layoutMode !== "NONE") {
+    if ((nodeType === "FRAME" || nodeType === "COMPONENT") && spec.layoutMode && spec.layoutMode !== "NONE") {
       if (spec.layoutSizingHorizontal) node.layoutSizingHorizontal = spec.layoutSizingHorizontal;
       if (spec.layoutSizingVertical) node.layoutSizingVertical = spec.layoutSizingVertical;
     }

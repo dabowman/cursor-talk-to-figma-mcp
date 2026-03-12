@@ -15,7 +15,10 @@ const colorSchema = z
 // Recursive node spec schema
 const nodeSpecSchema: z.ZodType<any> = z.lazy(() =>
   z.object({
-    type: z.enum(["FRAME", "TEXT", "RECTANGLE"]).optional().describe("Node type (default: FRAME)"),
+    type: z
+      .enum(["FRAME", "TEXT", "RECTANGLE", "COMPONENT", "INSTANCE"])
+      .optional()
+      .describe("Node type (default: FRAME). COMPONENT works like FRAME but creates a component. INSTANCE requires componentId or componentKey."),
     name: z.string().optional().describe("Node name"),
     x: z.number().optional().describe("X position"),
     y: z.number().optional().describe("Y position"),
@@ -45,6 +48,12 @@ const nodeSpecSchema: z.ZodType<any> = z.lazy(() =>
     fontFamily: z.string().optional().describe("Font family (default: Inter)"),
     fontStyle: z.string().optional().describe("Font style (default: Regular)"),
     fontColor: colorSchema,
+    // Instance-specific (type: INSTANCE)
+    componentId: z.string().optional().describe("Node ID of a local COMPONENT to instantiate (for INSTANCE type)"),
+    componentKey: z
+      .string()
+      .optional()
+      .describe("Key of a published library component to instantiate (for INSTANCE type)"),
     // Children
     children: z
       .array(z.lazy(() => nodeSpecSchema))
@@ -58,7 +67,7 @@ server.tool(
   "create",
   `Create one or more nodes in Figma. Accepts a single node spec or a nested tree of nodes.
 
-Node types: FRAME (default), TEXT, RECTANGLE.
+Node types: FRAME (default), TEXT, RECTANGLE, COMPONENT, INSTANCE.
 
 For a single node, pass a flat spec:
   { node: { type: "TEXT", text: "Hello", fontSize: 24 } }
@@ -69,9 +78,16 @@ For nested structures, add children:
     { type: "TEXT", text: "Body text" }
   ]}}
 
-FRAME nodes support auto-layout (layoutMode, padding, alignment, spacing, sizing), fill/stroke colors, and cornerRadius.
+For components (works like FRAME but creates a COMPONENT node):
+  { node: { type: "COMPONENT", name: "Button", layoutMode: "HORIZONTAL", children: [...] } }
+
+For instances (componentId for local, componentKey for library):
+  { node: { type: "INSTANCE", componentId: "123:456" } }
+
+FRAME and COMPONENT nodes support auto-layout (layoutMode, padding, alignment, spacing, sizing), fill/stroke colors, and cornerRadius.
 TEXT nodes support text, fontSize, fontWeight, fontFamily, fontStyle, and fontColor.
 RECTANGLE nodes support fillColor, strokeColor, strokeWeight, and cornerRadius.
+INSTANCE nodes require componentId or componentKey. Position and parentId work as usual.
 All nodes support width, height, x, y, and name.
 
 FILL sizing is applied in a second pass after children exist, so it works correctly even at creation time.

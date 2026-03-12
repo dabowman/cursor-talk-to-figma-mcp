@@ -42,11 +42,11 @@ When an AI agent calls a tool:
 
 Add the tool in the relevant domain file under `src/figmagent_mcp/tools/`:
 - `document.ts` — get_document_info, get_selection, get (unified node reading with FSGN output)
-- `create.ts` — create (single nodes and nested trees)
-- `apply.ts` — apply (unified property application: fill, stroke, corner radius, opacity, layout, variables, text styles)
+- `create.ts` — create (single nodes and nested trees, including COMPONENT and INSTANCE types)
+- `apply.ts` — apply (unified property application: fill, stroke, corner radius, opacity, layout, variables, text styles, variant swapping, exposed instances)
 - `modify.ts` — move_node, resize_node, rename_node, delete_node, delete_multiple_nodes, reorder_children, clone_node, clone_and_modify
 - `text.ts` — set_text_content, set_multiple_text_contents
-- `components.ts` — create_component, combine_as_variants, create_component_instance, get/set_instance_overrides, swap_component_variant, get_component_properties, add/edit/delete_component_property, set_exposed_instance, get_main_component
+- `components.ts` — get_local_components, combine_as_variants, component_properties (batch add/edit/delete), get/set_instance_overrides
 - `scan.ts` — scan_text_nodes, scan_nodes_by_types, get_annotations, set_annotation
 - `export.ts` — export_node_as_image
 - `libraries.ts` — remote library tools (REST API based)

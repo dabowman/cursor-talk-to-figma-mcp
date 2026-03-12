@@ -105,6 +105,20 @@ async function processNode(op, styleCache) {
   const node = await figma.getNodeByIdAsync(op.nodeId);
   if (!node) throw new Error("Node not found: " + op.nodeId);
 
+  // Phase 0: Component operations (swap variant, set exposed instance)
+  if (op.swapVariantId) {
+    if (node.type !== "INSTANCE") throw new Error("swapVariantId requires an INSTANCE node: " + op.nodeId);
+    const newVariant = await figma.getNodeByIdAsync(op.swapVariantId);
+    if (!newVariant) throw new Error("Variant component not found: " + op.swapVariantId);
+    if (newVariant.type !== "COMPONENT") throw new Error("Target is not a COMPONENT: " + op.swapVariantId);
+    node.swapComponent(newVariant);
+  }
+
+  if (op.isExposedInstance !== undefined) {
+    if (node.type !== "INSTANCE") throw new Error("isExposedInstance requires an INSTANCE node: " + op.nodeId);
+    node.isExposedInstance = op.isExposedInstance;
+  }
+
   // Phase 1: Layout mode (must come first — enables padding/alignment/sizing)
   if (op.layoutMode !== undefined && "layoutMode" in node) {
     node.layoutMode = op.layoutMode;
