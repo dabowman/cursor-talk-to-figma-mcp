@@ -41,7 +41,7 @@ When an AI agent calls a tool:
 ### Step 1: Define the tool in the appropriate tools/ module
 
 Add the tool in the relevant domain file under `src/figmagent_mcp/tools/`:
-- `document.ts` — get_document_info, get_selection, get_node_info, read_my_design
+- `document.ts` — get_document_info, get_selection, get (unified node reading with FSGN output)
 - `create.ts` — create (single nodes and nested trees)
 - `apply.ts` — apply (unified property application: fill, stroke, corner radius, opacity, layout, variables, text styles)
 - `modify.ts` — move_node, resize_node, rename_node, delete_node, delete_multiple_nodes, reorder_children, clone_node, clone_and_modify
@@ -271,18 +271,11 @@ Key points:
 | `sendProgressUpdate(commandId, type, status, progress, total, processed, message, payload)` | Send progress through the chain — required for batch ops |
 | `setCharacters(node, text, options)` | Set text content with smart font handling (handles mixed fonts) |
 | `rgbaToHex(color)` | Convert Figma 0–1 RGBA to hex string |
-| `filterFigmaNode(node, depth)` | Serialize a Figma node to a clean JSON-safe object (depth limits child traversal). Includes auto-layout properties (layoutMode, sizing modes, alignment, spacing, padding, layoutWrap) when layout is active. |
 | `findNodeByIdInTree(nodeId)` | Walk `figma.currentPage` depth-first to find a node — fallback for `getNodeByIdAsync` failures on nested instance IDs |
 | `toNumber(value)` | Safe string-to-number coercion |
 | `delay(ms)` | Promise-based delay |
 | `generateCommandId()` | Create a unique command ID |
 | `uniqBy(arr, predicate)` | De-duplicate an array by key |
-
-### filterFigmaNode exists in BOTH files
-
-`filterFigmaNode` has separate implementations in `code.js` and `utils.ts`. When adding a tool, decide where to filter:
-- **In code.js (plugin side)**: Smaller WebSocket payload, less data over the wire. Most existing tools do this.
-- **In utils.ts (server side)**: Simpler plugin handler, but sends raw Figma data over WebSocket. Supports `depth` param for limiting child traversal.
 
 ### Dead file: setcharacters.js
 

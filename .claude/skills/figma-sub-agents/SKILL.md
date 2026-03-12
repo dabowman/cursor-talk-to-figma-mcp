@@ -1,13 +1,13 @@
 ---
 name: figma-sub-agents
-description: "Orchestrator guide for delegating Figma MCP phases to specialized sub-agents. Use when a Figma task is large enough to risk context overflow — component sets with 8+ variants, unknown tree depth, large read_my_design responses, or sessions expected to exceed 100 tool calls. Supports both serial discovery and parallel build/style phases."
+description: "Orchestrator guide for delegating Figma MCP phases to specialized sub-agents. Use when a Figma task is large enough to risk context overflow — component sets with 8+ variants, unknown tree depth, or sessions expected to exceed 100 tool calls. Supports both serial discovery and parallel build/style phases."
 ---
 
 # Figma MCP Sub-Agent Orchestration
 
-Large Figma sessions hit three problems in a single-agent context: **context pressure** (large `read_my_design` responses, raw JSON dumps), **attention drift** (losing track of which nodes are done after 30+ sequential calls), and **error pollution** (9 retries of a failing tool consuming planning context). Sub-agents solve this by giving each phase its own clean context window.
+Large Figma sessions hit three problems in a single-agent context: **context pressure** (large node tree responses), **attention drift** (losing track of which nodes are done after 30+ sequential calls), and **error pollution** (9 retries of a failing tool consuming planning context). Sub-agents solve this by giving each phase its own clean context window.
 
-The primary tool for discovery is **`get_node_tree`**, which returns structured YAML (FSGN format) instead of raw JSON, with deduplicated variable/style/component defs and a `tokenEstimate` in the meta. It replaces the old `read_my_design` → `get_node_info` depth escalation pattern.
+The primary tool for reading nodes is **`get`**, which returns structured YAML (FSGN format) with deduplicated variable/style/component defs and a `tokenEstimate` in the meta. It accepts `nodeId` (single) or `nodeIds` (multiple, fetched in parallel).
 
 Sub-agents also enable **parallel execution**: multiple agents can modify different parts of the Figma document simultaneously, with plugin-level concurrency control ensuring safety.
 
@@ -24,7 +24,7 @@ Sub-agents also enable **parallel execution**: multiple agents can modify differ
 - Target component set has **8+ variants**
 - Frame tree depth is unknown or likely > 4 levels
 - This is the first time seeing this Figma file in the session
-- A `get_node_tree` response has `tokenEstimate > 8000` even at `detail=structure`
+- A `get` response has `tokenEstimate > 8000` even at `detail=structure`
 - You need both a full text node inventory AND a variable binding audit in the same pass
 
 **Skip it when** you already have the node IDs and structure, the target has < 20 children, or you only need one piece of info (just call the tool directly).
@@ -66,7 +66,7 @@ The Figma plugin has concurrency control that makes parallel agent execution saf
 2. **Don't mix phases.** Don't run a Builder and Styler in parallel — build everything first, then style everything. The Styler needs the nodes to exist before it can bind variables.
 3. **Use `run_in_background: true`** on the Agent tool to launch parallel agents. You will be notified when each completes.
 4. **All agents share one channel.** Sub-agents share the parent's MCP server and WebSocket connection. Request ID correlation handles response routing — no multi-channel needed.
-5. **Verify after parallel phases.** After all parallel agents complete, call `get_node_info` on the parent to confirm the expected structure.
+5. **Verify after parallel phases.** After all parallel agents complete, call `get(nodeId, detail="structure")` on the parent to confirm the expected structure.
 6. **Max 3 parallel agents** for build/style phases. More than 3 creates diminishing returns and risks hitting the plugin's concurrency cap (6 in-flight operations, ~2 per agent).
 
 ### Partitioning Strategies
@@ -101,7 +101,7 @@ The agent definition lives at `.claude/agents/figma-discovery.md`. It has:
 - A read-only tool set (no create/modify tools)
 - A system prompt with its full workflow and output schema
 
-**Tools available to the agent:** `join_channel`, `get_node_info`, `get_nodes_info`, `scan_text_nodes`, `get_local_variables`, `get_styles`, `get_local_components`, `get_main_component` (plus `ToolSearch` to load them)
+**Tools available to the agent:** `join_channel`, `get`, `scan_text_nodes`, `get_local_variables`, `get_styles`, `get_local_components`, `get_main_component` (plus `ToolSearch` to load them)
 
 ### Spawning the Agent
 
@@ -199,8 +199,8 @@ if (discovery.status === "blocked") {
 ```json
 {
   "status": "blocked",
-  "error": "get_node_info timed out twice",
-  "last_tool": "get_node_info",
+  "error": "get timed out twice",
+  "last_tool": "get",
   "recommendation": "Call join_channel again — connection may have dropped"
 }
 ```
@@ -230,7 +230,7 @@ RULES:
 - Use create for complex structures (reduces many calls to 1)
 - Use clone_node + clone_and_modify when duplicating existing patterns
 - Use create_component_instance with componentId for reusing library parts
-- After creating nodes, verify with get_node_info that structure matches spec
+- After creating nodes, verify with get(nodeId, detail="structure") that structure matches spec
 - Return JSON: {"status": "success", "created_nodes": [...ids], "summary": "..."}
 - If any tool fails twice on the same call, stop and return: {"status": "blocked", "error": "...", "last_tool": "...", "recommendation": "..."}
 `
@@ -259,9 +259,9 @@ RULES:
 
 Applies variable bindings and text styles. Uses general-purpose agent type.
 
-### Pre-flight with get_node_tree
+### Pre-flight with get
 
-Before spawning Styler agents, the orchestrator can call `get_node_tree(nodeId, detail="full")` on the built subtree. The FSGN `defs` section lists all variables and styles already present; `variableBindings` on each node shows what's already bound. This makes the binding plan explicit — pass it directly to the Styler via `VARIABLE BINDINGS TO APPLY`.
+Before spawning Styler agents, the orchestrator can call `get(nodeId, detail="full")` on the built subtree. The FSGN `defs` section lists all variables and styles already present; `variableBindings` on each node shows what's already bound. This makes the binding plan explicit — pass it directly to the Styler via `VARIABLE BINDINGS TO APPLY`.
 
 ### Spawning
 
@@ -285,7 +285,7 @@ RULES:
 - Use apply() with variables field to bind design tokens to node properties (supports flat list or nested tree)
 - Use apply() with textStyleId to apply text styles (deduplicates font loading automatically)
 - Process in order: variable bindings first, then text styles
-- After applying, verify a sample node with get_node_info to confirm bindings took
+- After applying, verify a sample node with get(nodeId, detail="full") to confirm bindings took
 - Return JSON: {"status": "success", "bindings_applied": N, "styles_applied": N, "summary": "..."}
 - If any tool fails twice on the same call, stop and return blocked status
 `

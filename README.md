@@ -69,10 +69,7 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 | `join_channel` | Join a Figma plugin channel (auto-discovers if no args) |
 | `get_document_info` | Get current document structure |
 | `get_selection` | Get current selection |
-| `read_my_design` | Get detailed info about current selection |
-| `get_node_info` | Get node details (supports `depth` param to limit tree) |
-| `get_nodes_info` | Get details for multiple nodes by ID |
-| `get_node_tree` | Structured YAML tree (FSGN format) with detail levels: `structure` / `layout` / `full`. Deduplicated variable, style, and component defs. Prefer over `read_my_design` and repeated `get_node_info` calls. |
+| `get` | Read one or more nodes and their subtrees. Structured YAML (FSGN format) with detail levels: `structure` / `layout` / `full`. Accepts `nodeId` (single) or `nodeIds` (multiple). Deduplicated variable, style, and component defs. |
 | `set_focus` | Select and scroll to a node |
 | `set_selections` | Select multiple nodes |
 

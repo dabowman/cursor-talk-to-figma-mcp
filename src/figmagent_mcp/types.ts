@@ -44,10 +44,7 @@ export interface setInstanceOverridesResult {
 export type FigmaCommand =
   | "get_document_info"
   | "get_selection"
-  | "get_node_info"
-  | "get_nodes_info"
   | "get_node_tree"
-  | "read_my_design"
   | "create"
   | "apply"
   | "move_node"

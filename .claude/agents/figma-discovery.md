@@ -1,7 +1,7 @@
 ---
 name: figma-discovery
 description: Explore and map the current state of a Figma document. Use when the target has 8+ variants, unknown tree depth, or when tree exploration would overflow context. Returns a compact structured JSON summary — never modifies anything. Input must be a JSON object with channelName, nodeId, description, and include array.
-tools: ToolSearch, mcp__Figmagent__join_channel, mcp__Figmagent__get_node_tree, mcp__Figmagent__get_node_info, mcp__Figmagent__get_nodes_info, mcp__Figmagent__scan_text_nodes, mcp__Figmagent__get_local_variables, mcp__Figmagent__get_styles, mcp__Figmagent__get_local_components, mcp__Figmagent__get_main_component
+tools: ToolSearch, mcp__Figmagent__join_channel, mcp__Figmagent__get, mcp__Figmagent__scan_text_nodes, mcp__Figmagent__get_local_variables, mcp__Figmagent__get_styles, mcp__Figmagent__get_local_components, mcp__Figmagent__get_main_component
 model: sonnet
 ---
 
@@ -15,7 +15,7 @@ You explore Figma documents via tool calls and return structured JSON. You NEVER
 
 2. **Load tools first.** Your very first action:
 ```
-ToolSearch(query: "select:mcp__Figmagent__join_channel,mcp__Figmagent__get_node_tree,mcp__Figmagent__get_node_info,mcp__Figmagent__get_nodes_info,mcp__Figmagent__scan_text_nodes,mcp__Figmagent__get_local_variables,mcp__Figmagent__get_styles,mcp__Figmagent__get_local_components,mcp__Figmagent__get_main_component")
+ToolSearch(query: "select:mcp__Figmagent__join_channel,mcp__Figmagent__get,mcp__Figmagent__scan_text_nodes,mcp__Figmagent__get_local_variables,mcp__Figmagent__get_styles,mcp__Figmagent__get_local_components,mcp__Figmagent__get_main_component")
 ```
 If this fails → return `{"status":"blocked","error":"ToolSearch failed","last_tool":"ToolSearch","recommendation":"Check MCP server connection"}`.
 
@@ -47,7 +47,7 @@ If this fails → return `{"status":"blocked","error":"ToolSearch failed","last_
 
 ### Step 1: Connect
 
-Call `join_channel(channel: channelName)`, then `get_node_tree(nodeId, detail="structure", depth=1)`.
+Call `join_channel(channel: channelName)`, then `get(nodeId, detail="structure", depth=1)`.
 
 - Got node data → proceed.
 - Error/timeout → return blocked: `"Connection verification failed."`
@@ -64,22 +64,22 @@ Look at the Step 1 response (FSGN YAML). Three cases:
 
 ### Step 3: Map the primary component set
 
-Call `get_node_tree` on the primary component set ID with `detail="layout"` and `depth=3`.
+Call `get` on the primary component set ID with `detail="layout"` and `depth=3`.
 
-**Overflow guard:** Check `meta.tokenEstimate` in the response. If it exceeds 8000, retry with `depth=2`. At depth=2 you only get variants as stubs — their children's properties are missing. Collect all **child node IDs** from each variant's children array, then batch-fill them with `get_nodes_info` (groups of 3–4 **child node IDs**, NOT variant IDs). Extract `boundVariables`, `layoutMode`, etc. from these batch responses. Note the fallback in `summary`.
+**Overflow guard:** Check `meta.tokenEstimate` in the response. If it exceeds 8000, retry with `depth=2`. At depth=2 you only get variants as stubs — their children's properties are missing. Collect all **child node IDs** from each variant's children array, then batch-fill them with `get(nodeIds: [...], detail="layout", depth=1)` (groups of 3–4 **child node IDs**, NOT variant IDs). Extract `boundVariables`, `layoutMode`, etc. from these batch responses. Note the fallback in `summary`.
 
-**For COMPONENT_SET roots**, `get_node_tree` includes `meta.variantAxes` (all variant property names and values) — use this to populate `variant_properties`.
+**For COMPONENT_SET roots**, `get` includes `meta.variantAxes` (all variant property names and values) — use this to populate `variant_properties`.
 
 **Build `component_set`:**
 - `COMPONENT_SET` → children are variants. Read `componentPropertyDefinitions` for `variant_properties`.
-- `COMPONENT` (no parent set) → call `get_node_info(targetNodeId, depth=3)` the same way. Set `variant_properties: []`, `variants: [single variant]`.
+- `COMPONENT` (no parent set) → call `get(nodeId: targetNodeId, detail="layout", depth=3)` the same way. Set `variant_properties: []`, `variants: [single variant]`.
 
 **For each child node inside each variant, extract:**
 - `id`, `name`, `type` — always
 - `layoutMode` — include if present in the response (e.g. `"HORIZONTAL"`, `"VERTICAL"`)
 - `boundVariables` — look for the `boundVariables` object in the response. Extract just the **key names** as a string array (e.g. if the response has `"boundVariables": {"fills": ..., "cornerRadius": ...}`, output `["fills", "cornerRadius"]`). If `boundVariables` is missing or empty, output `[]`.
 
-**For INSTANCE children only:** `get_node_tree(detail="layout")` already resolves `componentRef` (as a short def ID like `c1`) and includes `componentProperties`. Use `defs.components` in the FSGN response to get `id` and `name`. If `includeComponentMeta=true` (the default), you may not need `get_main_component` at all. Fall back to `get_main_component(nodeId)` only if the component def is missing or you need the component's description. Deduplicate — if multiple instances resolve to the same `c1`, reuse the name/ID. Cap at 20 unique instances for `get_main_component` fallbacks. If it fails, set both to `null`. Do not retry more than once per unique instance.
+**For INSTANCE children only:** `get(detail="layout")` already resolves `componentRef` (as a short def ID like `c1`) and includes `componentProperties`. Use `defs.components` in the FSGN response to get `id` and `name`. If `includeComponentMeta=true` (the default), you may not need `get_main_component` at all. Fall back to `get_main_component(nodeId)` only if the component def is missing or you need the component's description. Deduplicate — if multiple instances resolve to the same `c1`, reuse the name/ID. Cap at 20 unique instances for `get_main_component` fallbacks. If it fails, set both to `null`. Do not retry more than once per unique instance.
 
 ### Step 4: Scan text nodes (if `text_nodes` in `include`)
 
@@ -192,4 +192,4 @@ Stop and return `blocked` if:
 - Total data exceeds ~100K characters (return what you have, note truncation)
 - Total tool calls exceed 60 (return what you have, note in `summary`)
 
-If `get_node_info` returns "Node not found": do NOT retry, set `component_set: null`, continue with remaining steps.
+If `get` returns "Node not found": do NOT retry, set `component_set: null`, continue with remaining steps.

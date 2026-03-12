@@ -64,7 +64,7 @@ server.prompt("design_strategy", "Best practices for working with Figma designs"
    - Prefer binding variables over hardcoded values — this keeps designs connected to the design system
 
 9. Best Practices:
-   - Verify each creation with get_node_info()
+   - Verify each creation with get(nodeId, detail="structure")
    - Use parentId to maintain proper hierarchy
    - Group related elements together in frames
    - Keep consistent spacing and alignment
@@ -104,7 +104,7 @@ server.prompt("read_design_strategy", "Best practices for reading Figma designs"
           text: `When reading Figma designs, follow these best practices:
 
 1. Start with selection:
-   - First use read_my_design() to understand the current selection
+   - First use get_selection() to find selected node IDs, then get(nodeId) to understand the design
    - If no selection ask user to select single or multiple nodes
 `,
         },
@@ -134,7 +134,7 @@ server.prompt("text_replacement_strategy", "Systematic approach for replacing te
   * Navigation (menu items, breadcrumbs)
 \`\`\`
 scan_text_nodes(nodeId: "node-id")
-get_node_info(nodeId: "node-id")  // optional
+get(nodeId: "node-id", detail: "structure")  // optional
 \`\`\`
 
 ## 2. Strategic Chunking for Complex Designs
@@ -439,7 +439,7 @@ This strategy enables transferring content and property overrides from a source 
   \`\`\`
 
 ### 4. Verification
-- Verify results with \`get_node_info()\` or \`read_my_design()\`
+- Verify results with \`get(nodeId, detail="structure")\`
 - Confirm text content and style overrides have transferred successfully
 
 ## Key Tips
@@ -486,7 +486,7 @@ You will receive JSON data from the \`get_reactions\` tool. This data contains a
 ## Step-by-Step Process
 
 ### 1. Preparation & Context Gathering
-   - **Action:** Call \`read_my_design\` on the relevant node(s) to get context about the nodes involved (names, types, etc.). This helps in generating meaningful connector labels later.
+   - **Action:** Call \`get\` on the relevant node(s) to get context about the nodes involved (names, types, etc.). This helps in generating meaningful connector labels later.
    - **Action:** Call \`set_default_connector\` **without** the \`connectorId\` parameter.
    - **Check Result:** Analyze the response from \`set_default_connector\`.
      - If it confirms a default connector is already set (e.g., "Default connector is already set"), proceed to Step 2.
@@ -506,7 +506,7 @@ You will receive JSON data from the \`get_reactions\` tool. This data contains a
 
 ### 3. Generate Connector Text Labels
    - **For each extracted connection:** Create a concise, descriptive text label string.
-   - **Combine Information:** Use the \`actionType\`, \`triggerType\`, and potentially the names of the source/destination nodes (obtained from Step 1's \`read_my_design\` or by calling \`get_node_info\` if necessary) to generate the label.
+   - **Combine Information:** Use the \`actionType\`, \`triggerType\`, and potentially the names of the source/destination nodes (obtained from Step 1's \`get\` call) to generate the label.
    - **Example Labels:**
      - If \`triggerType\` is "ON_CLICK" and \`actionType\` is "NAVIGATE": "On click, navigate to [Destination Node Name]"
      - If \`triggerType\` is "ON_DRAG" and \`actionType\` is "OPEN_OVERLAY": "On drag, open [Destination Node Name] overlay"

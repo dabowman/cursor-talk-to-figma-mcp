@@ -15,6 +15,7 @@ import "./tools/modify.js";
 import "./tools/text.js";
 import "./tools/apply.js";
 import "./tools/components.js";
+import "./tools/tokens.js";
 import "./tools/export.js";
 import "./tools/scan.js";
 import "./tools/libraries.js";

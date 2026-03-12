@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { server } from "../instance.js";
 import { sendCommandToFigma } from "../connection.js";
-import { filterFigmaNode } from "../utils.js";
 
-// ─── FSGN helpers (get_node_tree) ────────────────────────────────────────────
+// ─── FSGN helpers ────────────────────────────────────────────────────────────
 
 function serializeYaml(obj: unknown, indent = 0): string {
   const pad = "  ".repeat(indent);
@@ -162,6 +161,8 @@ function buildFsgn(raw: any, params: any): string {
   return serializeYaml({ meta, defs, nodes: treeClone });
 }
 
+// ─── Tools ───────────────────────────────────────────────────────────────────
+
 // Document Info Tool
 server.tool("get_document_info", "Get detailed information about the current Figma document", {}, async () => {
   try {
@@ -210,133 +211,22 @@ server.tool("get_selection", "Get information about the current selection in Fig
   }
 });
 
-// Read My Design Tool
+// Get Tool — read nodes and their subtrees
 server.tool(
-  "read_my_design",
-  "Get detailed information about the current selection in Figma, including all node details",
-  {},
-  async () => {
-    try {
-      const result = await sendCommandToFigma("read_my_design", {});
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting node info: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Node Info Tool
-server.tool(
-  "get_node_info",
-  "Get detailed information about a specific node in Figma. Use depth to limit traversal for large nodes — depth=1 returns only immediate children (with childCount for deeper nodes), depth=2 goes two levels deep, etc. Omit depth for the full tree.",
-  {
-    nodeId: z.string().describe("The ID of the node to get information about"),
-    depth: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .describe(
-        "Maximum depth of children to include. Omit for full tree. Use 1-2 for large components to avoid token overflow.",
-      ),
-  },
-  async ({ nodeId, depth }: any) => {
-    try {
-      const result = await sendCommandToFigma("get_node_info", { nodeId });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(filterFigmaNode(result, depth)),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting node info: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Nodes Info Tool
-server.tool(
-  "get_nodes_info",
-  "Get detailed information about multiple nodes in Figma. Use depth to limit traversal for large nodes.",
-  {
-    nodeIds: z.array(z.string()).describe("Array of node IDs to get information about"),
-    depth: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .describe(
-        "Maximum depth of children to include. Omit for full tree. Use 1-2 for large components to avoid token overflow.",
-      ),
-  },
-  async ({ nodeIds, depth }: any) => {
-    try {
-      const results = await Promise.all(
-        nodeIds.map(async (nodeId: any) => {
-          const result = await sendCommandToFigma("get_node_info", { nodeId });
-          return { nodeId, info: result };
-        }),
-      );
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(results.map((result) => filterFigmaNode(result.info, depth))),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error getting nodes info: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  },
-);
-
-// Node Tree Tool
-server.tool(
-  "get_node_tree",
-  `Returns a structured YAML tree of a Figma node and its descendants (FSGN format).
+  "get",
+  `Read one or more Figma nodes and their subtrees. Returns structured YAML (FSGN format) with deduplicated variable, style, and component definitions.
 
 Use detail levels strategically:
   - "structure": IDs, names, types, child counts only (~5 tokens/node). Use first for orientation.
   - "layout": + dimensions, auto-layout, text content, componentRef/properties (~15 tokens/node). Use for building.
   - "full": + fills, strokes, variable bindings, text styles (~30 tokens/node). Use for styling.
 
+Pass a single nodeId for one node, or nodeIds for multiple nodes (returns one FSGN block per node, separated by "---").
 Start with depth=3 for component internals. For large responses (tokenEstimate >8000), narrow with depth or filter.
-Instances are shown as leaf nodes by default — call get_node_tree on the instance ID to expand its internals.
-Prefer this over read_my_design (which returns raw JSON) and repeated get_node_info depth escalation.`,
+Instances are shown as leaf nodes by default — call get on the instance ID to expand its internals.`,
   {
-    nodeId: z.string().describe("The ID of the root node to traverse"),
+    nodeId: z.string().optional().describe("ID of a single node to read"),
+    nodeIds: z.array(z.string()).optional().describe("IDs of multiple nodes to read in parallel"),
     detail: z
       .enum(["structure", "layout", "full"])
       .optional()
@@ -380,13 +270,38 @@ Prefer this over read_my_design (which returns raw JSON) and repeated get_node_i
   },
   async (params: any) => {
     try {
-      const result = await sendCommandToFigma("get_node_tree", params, 60000);
-      const yaml = buildFsgn(result, params);
+      // Collect all node IDs from nodeId and/or nodeIds
+      const ids: string[] = [];
+      if (params.nodeId) ids.push(params.nodeId);
+      if (params.nodeIds) ids.push(...params.nodeIds);
+
+      if (ids.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: provide either nodeId or nodeIds",
+            },
+          ],
+        };
+      }
+
+      // Fetch all nodes in parallel, each via the plugin's get_node_tree command
+      const results = await Promise.all(
+        ids.map((id) =>
+          sendCommandToFigma("get_node_tree", { ...params, nodeId: id, nodeIds: undefined }, 60000),
+        ),
+      );
+
+      // Build FSGN for each result
+      const yamls = results.map((result) => buildFsgn(result, params));
+      const output = yamls.length === 1 ? yamls[0] : yamls.join("\n---\n");
+
       return {
         content: [
           {
             type: "text",
-            text: yaml,
+            text: output,
           },
         ],
       };
@@ -395,7 +310,7 @@ Prefer this over read_my_design (which returns raw JSON) and repeated get_node_i
         content: [
           {
             type: "text",
-            text: `Error getting node tree: ${error instanceof Error ? error.message : String(error)}`,
+            text: `Error reading nodes: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       };
