@@ -16,7 +16,7 @@ import {
 } from "./commands/document.js";
 
 // Command imports — create
-import { createRectangle, createFrame, createText, createFrameTree } from "./commands/create.js";
+import { create } from "./commands/create.js";
 
 // Command imports — modify
 import {
@@ -114,7 +114,7 @@ var READ_OPS = {
 };
 
 var GLOBAL_OPS = {
-  create_frame_tree: true,
+  create: true,
   delete_multiple_nodes: true,
   combine_as_variants: true,
   reorder_children: true,
@@ -246,12 +246,8 @@ async function handleCommand(command, params) {
       return await getNodeTree(params);
     case "read_my_design":
       return await readMyDesign();
-    case "create_rectangle":
-      return await createRectangle(params);
-    case "create_frame":
-      return await createFrame(params);
-    case "create_text":
-      return await createText(params);
+    case "create":
+      return await create(params);
     case "set_fill_color":
       return await setFillColor(params);
     case "set_stroke_color":
@@ -363,8 +359,6 @@ async function handleCommand(command, params) {
       return await setSelections(params);
     case "reorder_children":
       return await reorderChildren(params);
-    case "create_frame_tree":
-      return await createFrameTree(params);
     case "set_multiple_properties":
       return await setMultipleProperties(params);
     case "clone_and_modify":

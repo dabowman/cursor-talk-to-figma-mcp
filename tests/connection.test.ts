@@ -159,21 +159,21 @@ describe("sendCommandToFigma", () => {
     const broadcastPromise = new Promise<any>((resolve) => {
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data as string);
-        if (data.type === "broadcast" && data.message?.command === "create_rectangle") {
+        if (data.type === "broadcast" && data.message?.command === "create") {
           resolve(data);
         }
       };
     });
 
     // Send a command (it will time out since no plugin responds, but the message shape is sent)
-    const cmdPromise = sendCommandToFigma("create_rectangle", { x: 0, y: 0, width: 100, height: 50 }, 2000);
+    const cmdPromise = sendCommandToFigma("create", { x: 0, y: 0, width: 100, height: 50 }, 2000);
 
     const broadcast = await broadcastPromise;
 
     // Verify message shape
     expect(broadcast.type).toBe("broadcast");
     expect(broadcast.channel).toBe("shape-test-ch");
-    expect(broadcast.message.command).toBe("create_rectangle");
+    expect(broadcast.message.command).toBe("create");
     expect(broadcast.message.id).toBeDefined();
     expect(broadcast.message.params.x).toBe(0);
     expect(broadcast.message.params.width).toBe(100);

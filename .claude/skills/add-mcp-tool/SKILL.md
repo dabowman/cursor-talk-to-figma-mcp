@@ -42,7 +42,7 @@ When an AI agent calls a tool:
 
 Add the tool in the relevant domain file under `src/figmagent_mcp/tools/`:
 - `document.ts` — get_document_info, get_selection, get_node_info, read_my_design
-- `create.ts` — create_rectangle, create_frame, create_text
+- `create.ts` — create (single nodes and nested trees)
 - `modify.ts` — rename_node, set_fill_color, set_stroke_color, move_node, resize_node, delete_node, set_corner_radius
 - `text.ts` — set_text_content, set_multiple_text_contents
 - `layout.ts` — set_layout_mode, set_padding, set_axis_align, set_layout_sizing, set_item_spacing

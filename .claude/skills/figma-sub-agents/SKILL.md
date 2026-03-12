@@ -57,7 +57,7 @@ Discovery always runs alone. Planning happens in the orchestrator. Verification 
 
 The Figma plugin has concurrency control that makes parallel agent execution safe:
 - **Node-level write locks** prevent two agents from writing to the same node simultaneously
-- **Global mutex** serializes tree-mutation operations (`create_frame_tree`, `delete_multiple_nodes`, etc.)
+- **Global mutex** serializes tree-mutation operations (`create`, `delete_multiple_nodes`, etc.)
 - **Concurrency cap** (max 6 in-flight operations) prevents Figma CPU budget exhaustion
 
 **Rules for parallel sub-agents:**
@@ -227,7 +227,7 @@ WHAT TO BUILD:
 ${buildSpec}
 
 RULES:
-- Use create_frame_tree for complex structures (reduces many calls to 1)
+- Use create for complex structures (reduces many calls to 1)
 - Use clone_node + clone_and_modify when duplicating existing patterns
 - Use create_component_instance with componentId for reusing library parts
 - After creating nodes, verify with get_node_info that structure matches spec
@@ -241,7 +241,7 @@ RULES:
 
 - Multiple independent variants to create (e.g., 4 State variants each with the same structure)
 - Multiple independent component sets to build
-- Large `create_frame_tree` specs that don't share parent nodes
+- Large `create` specs that don't share parent nodes
 
 ### Output
 
@@ -337,8 +337,8 @@ TIME    ORCHESTRATOR              BUILDER-A             BUILDER-B
 0:01    → Discovery agent
 0:03    ← discovery JSON
 0:04    Plan: partition by State
-0:05    → Builder A (Loading)     create_frame_tree ──►
-0:05    → Builder B (Empty)                             create_frame_tree ──►
+0:05    → Builder A (Loading)     create ──►
+0:05    → Builder B (Empty)                             create ──►
         [both run_in_background]
 0:07                              ◄── done              ◄── done
 0:08    verify structure

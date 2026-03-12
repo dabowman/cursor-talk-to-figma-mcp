@@ -15,7 +15,7 @@ describe("Message Protocol Contracts", () => {
         channel: "test-channel",
         message: {
           id: "uuid-123",
-          command: "create_rectangle",
+          command: "create",
           params: {
             x: 0,
             y: 0,
@@ -59,7 +59,7 @@ describe("Message Protocol Contracts", () => {
         type: "broadcast",
         message: {
           id: "uuid-123",
-          command: "create_rectangle",
+          command: "create",
           params: { x: 0, y: 0, width: 100, height: 100 },
         },
         sender: "peer",
@@ -79,7 +79,7 @@ describe("Message Protocol Contracts", () => {
       const pluginMessage = {
         type: "execute-command",
         id: "uuid-123",
-        command: "create_rectangle",
+        command: "create",
         params: { x: 0, y: 0, width: 100, height: 100 },
       };
 

@@ -80,10 +80,7 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 
 | Tool | Description |
 |------|-------------|
-| `create_rectangle` | Create a rectangle |
-| `create_frame` | Create a frame with optional auto layout and corner radius |
-| `create_text` | Create a text node with font properties |
-| `create_frame_tree` | Build an entire subtree from a recursive JSON spec in one call |
+| `create` | Create one or more nodes (FRAME, TEXT, RECTANGLE) from a single or nested spec |
 
 ### Modifying Elements
 

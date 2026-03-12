@@ -40,7 +40,7 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 - `src/helpers.js` — shared utilities: state, progress updates, toNumber, filterFigmaNode, etc.
 - `src/setcharacters.js` — font-safe text replacement (handles mixed fonts)
 - `src/commands/document.js` — getDocumentInfo, getSelection, getNodeInfo, readMyDesign, getNodeTree (FSGN traversal), exportNodeAsImage
-- `src/commands/create.js` — createRectangle, createFrame, createText, createFrameTree
+- `src/commands/create.js` — create (single nodes and nested trees)
 - `src/commands/modify.js` — setFillColor, moveNode, deleteNode, cloneAndModify, etc.
 - `src/commands/text.js` — setTextContent, setMultipleTextContents
 - `src/commands/layout.js` — setLayoutMode, setPadding, setAxisAlign, setLayoutSizing, setItemSpacing
@@ -59,7 +59,7 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 - **Chunking**: Large operations (scanning 100+ nodes) are chunked with progress updates to prevent Figma UI freezing.
 - **Reconnection**: WebSocket auto-reconnects after 2 seconds on disconnect.
 - **Zod validation**: All tool parameters are validated with Zod schemas.
-- **Batch operations**: Prefer `set_multiple_text_contents`, `delete_multiple_nodes`, `set_multiple_annotations`, `set_multiple_properties`, `create_frame_tree` over repeated single-node calls.
+- **Batch operations**: Prefer `set_multiple_text_contents`, `delete_multiple_nodes`, `set_multiple_annotations`, `set_multiple_properties` over repeated single-node calls. Use `create` for all node creation — it handles both single nodes and nested trees.
 - **Tree inspection**: Prefer `get_node_tree` over `read_my_design` or repeated `get_node_info` calls. Use `detail="structure"` for orientation (~5 tokens/node), `detail="layout"` for building/cloning (~15 tokens/node), `detail="full"` for variable/style audits (~30 tokens/node). Start with `depth=3` for component internals. Instances are leaf nodes by default — call `get_node_tree` on an instance ID to expand its internals. If `tokenEstimate > 8000`, narrow with `depth` or `filter`.
 - **Layout inspection**: `get_node_tree` and `get_node_info` return auto-layout properties (layoutMode, sizing modes, alignment, spacing, padding, layoutWrap) on frames with active auto-layout. Default values (MIN alignment, zero spacing/padding, NO_WRAP) are omitted to keep output concise.
 - **FSGN format**: `get_node_tree` returns YAML in Figma Scene Graph Notation. The `meta` section has `nodeCount` and `tokenEstimate`. The `defs` section deduplicates variables (`v1`, `v2`…), styles (`s1`, `s2`…), and components (`c1`, `c2`…) referenced throughout `nodes`. Use the short IDs from `defs` when calling `bind_variable` or `set_text_style`.
@@ -74,13 +74,13 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 These are hard-won patterns from real agent sessions. Violating them causes silent failures or wasted tool calls.
 
 ### Sizing sequencing
-Cannot set `FILL` sizing at frame creation time — the frame isn't yet a child of an auto-layout parent when the property is set. **Pattern**: Create the frame first (with `parentId`), THEN call `set_layout_sizing` separately. `create_frame_tree` handles this automatically with two-pass sizing.
+Cannot set `FILL` sizing at frame creation time — the frame isn't yet a child of an auto-layout parent when the property is set. **Pattern**: Create the frame first (with `parentId`), THEN call `set_layout_sizing` separately. The `create` tool handles this automatically with two-pass sizing.
 
 ### Use FRAME, not RECTANGLE, for stretchy shapes
 RECTANGLE nodes cannot have `layoutSizingVertical: FILL`. Use a FRAME with a fill color instead. Example: a 1px-wide FRAME replaces a RECTANGLE for timeline connecting lines.
 
-### `create_frame_tree` inline capabilities
-Beyond basic structure, the tree spec supports: `cornerRadius`, `strokeColor` + `strokeWeight`, font properties (`fontWeight`, `fontSize`, `fontColor`) on TEXT nodes, and `fillColor`. FILL sizing is applied in a second pass after all nodes exist. The root node's FILL sizing works if the parent has auto-layout.
+### `create` tool capabilities
+The `create` tool is the single entry point for all node creation. It accepts a node spec that can be a single node or a nested tree. Supported properties: `cornerRadius`, `strokeColor` + `strokeWeight`, font properties (`fontWeight`, `fontSize`, `fontFamily`, `fontStyle`, `fontColor`) on TEXT nodes, `fillColor`, and all auto-layout properties on FRAMEs. FILL sizing is applied in a second pass after all nodes exist. The root node's FILL sizing works if the parent has auto-layout.
 
 ### Instance text override ID format
 For text overrides on instances, use the path format `I<instanceId>;<componentTextNodeId>`. For nested instances: `I<outerInstance>;<innerInstance>;<textNodeId>`. Use `scan_text_nodes` on the component to discover text node IDs first.
@@ -100,7 +100,7 @@ When new tools are added to the MCP server source, they won't appear until the M
 ## Concurrency & Sub-Agents
 
 ### Plugin concurrency control
-The plugin classifies operations: `READ_OPS` run freely, `GLOBAL_OPS` (e.g., `create_frame_tree`, `batch_bind_variables`, `delete_multiple_nodes`) serialize via global mutex, and per-node writes lock by `nodeId`. Max 6 concurrent in-flight operations. This makes parallel agent execution safe when agents operate on disjoint node sets.
+The plugin classifies operations: `READ_OPS` run freely, `GLOBAL_OPS` (e.g., `create`, `batch_bind_variables`, `delete_multiple_nodes`) serialize via global mutex, and per-node writes lock by `nodeId`. Max 6 concurrent in-flight operations. This makes parallel agent execution safe when agents operate on disjoint node sets.
 
 ### Sub-agent architecture
 For large Figma tasks (8+ variants, 100+ tool calls), use the `/figma-sub-agents` skill to delegate work:

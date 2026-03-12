@@ -35,8 +35,9 @@ server.prompt("design_strategy", "Best practices for working with Figma designs"
    - Group related inputs (e.g., username/password) together
 
 5. Element Creation:
-   - Use create_frame() for containers and input fields
-   - Use create_text() for labels, buttons text, and links
+   - Use create() for all node creation — frames, text, rectangles, and nested structures
+   - Pass type: "FRAME" for containers, type: "TEXT" for labels/buttons/links
+   - Nest children directly in the node spec for complex layouts
    - Set appropriate colors and styles:
      * Use fillColor for backgrounds
      * Use strokeColor for borders
