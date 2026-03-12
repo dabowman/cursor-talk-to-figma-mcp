@@ -136,7 +136,7 @@ if (discovery.status === "blocked") {
 } else {
   // discovery.component_set.variants[].id → parentId values for create/clone calls
   // discovery.component_sets_in_frame     → all component sets when target is a FRAME (pick one to deep-map)
-  // discovery.text_nodes[]                → input for batch_set_text_styles / batch_bind_variables
+  // discovery.text_nodes[]                → input for apply (variables, textStyleId)
   // discovery.unbound_nodes               → if >= 20, a Styler phase is needed; null = unknown
   // discovery.variables                   → sanity-check tokens are loaded
   // discovery.summary                     → user-facing status message
@@ -282,8 +282,8 @@ TEXT STYLE ASSIGNMENTS:
 ${JSON.stringify(textStyles)}
 
 RULES:
-- Use batch_bind_variables (up to 10 bindings per call) instead of individual bind_variable
-- Use batch_set_text_styles (up to 5 per call) instead of individual set_text_style
+- Use apply() with variables field to bind design tokens to node properties (supports flat list or nested tree)
+- Use apply() with textStyleId to apply text styles (deduplicates font loading automatically)
 - Process in order: variable bindings first, then text styles
 - After applying, verify a sample node with get_node_info to confirm bindings took
 - Return JSON: {"status": "success", "bindings_applied": N, "styles_applied": N, "summary": "..."}

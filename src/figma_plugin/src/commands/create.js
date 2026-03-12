@@ -183,15 +183,7 @@ export async function create(params) {
   const treeResult = await buildNode(tree, null);
 
   if (commandId) {
-    sendProgressUpdate(
-      commandId,
-      "create",
-      "completed",
-      100,
-      totalNodes,
-      createdCount,
-      "Creation completed",
-    );
+    sendProgressUpdate(commandId, "create", "completed", 100, totalNodes, createdCount, "Creation completed");
   }
 
   return {

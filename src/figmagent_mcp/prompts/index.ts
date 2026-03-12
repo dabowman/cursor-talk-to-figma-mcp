@@ -56,9 +56,9 @@ server.prompt("design_strategy", "Best practices for working with Figma designs"
      * Smaller for helper text/links
 
 8. Design System Integration:
-   - Use get_styles() to discover available text styles, then set_text_style() to apply them
+   - Use get_styles() to discover available text styles, then apply() with textStyleId to apply them
    - Use get_local_variables() to discover design tokens (colors, spacing, radii, etc.)
-   - Use bind_variable() to bind tokens to node properties (fill, stroke, cornerRadius, padding, spacing, dimensions)
+   - Use apply() with variables field to bind tokens to node properties (fill, stroke, cornerRadius, padding, spacing, dimensions)
    - Prefer binding variables over hardcoded values — this keeps designs connected to the design system
 
 9. Best Practices:

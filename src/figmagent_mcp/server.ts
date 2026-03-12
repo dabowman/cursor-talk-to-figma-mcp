@@ -13,7 +13,7 @@ import "./tools/document.js";
 import "./tools/create.js";
 import "./tools/modify.js";
 import "./tools/text.js";
-import "./tools/layout.js";
+import "./tools/apply.js";
 import "./tools/components.js";
 import "./tools/export.js";
 import "./tools/scan.js";

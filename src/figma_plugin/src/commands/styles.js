@@ -147,7 +147,7 @@ export async function getLocalComponents() {
   };
 }
 
-var FIELD_MAP = {
+export var FIELD_MAP = {
   fills: "fills",
   fill: "fills",
   strokes: "strokes",

@@ -43,10 +43,10 @@ When an AI agent calls a tool:
 Add the tool in the relevant domain file under `src/figmagent_mcp/tools/`:
 - `document.ts` — get_document_info, get_selection, get_node_info, read_my_design
 - `create.ts` — create (single nodes and nested trees)
-- `modify.ts` — rename_node, set_fill_color, set_stroke_color, move_node, resize_node, delete_node, set_corner_radius
+- `apply.ts` — apply (unified property application: fill, stroke, corner radius, opacity, layout, variables, text styles)
+- `modify.ts` — move_node, resize_node, rename_node, delete_node, delete_multiple_nodes, reorder_children, clone_node, clone_and_modify
 - `text.ts` — set_text_content, set_multiple_text_contents
-- `layout.ts` — set_layout_mode, set_padding, set_axis_align, set_layout_sizing, set_item_spacing
-- `components.ts` — get_styles, get_local_variables, get_local_components, create_component, combine_as_variants, create_component_instance, get/set_instance_overrides, swap_component_variant, get_component_properties, add/edit/delete_component_property, set_exposed_instance, bind_variable, set_text_style, get_main_component
+- `components.ts` — create_component, combine_as_variants, create_component_instance, get/set_instance_overrides, swap_component_variant, get_component_properties, add/edit/delete_component_property, set_exposed_instance, get_main_component
 - `scan.ts` — scan_text_nodes, scan_nodes_by_types, get_annotations, set_annotation
 - `export.ts` — export_node_as_image
 - `libraries.ts` — remote library tools (REST API based)

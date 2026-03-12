@@ -18,17 +18,16 @@ import {
 // Command imports — create
 import { create } from "./commands/create.js";
 
+// Command imports — apply
+import { apply } from "./commands/apply.js";
+
 // Command imports — modify
 import {
-  setFillColor,
-  setStrokeColor,
   moveNode,
   resizeNode,
-  setCornerRadius,
   renameNode,
   deleteNode,
   deleteMultipleNodes,
-  setMultipleProperties,
   reorderChildren,
   cloneNode,
   cloneAndModify,
@@ -36,9 +35,6 @@ import {
 
 // Command imports — text
 import { setTextContent, setMultipleTextContents } from "./commands/text.js";
-
-// Command imports — layout
-import { setLayoutMode, setPadding, setAxisAlign, setLayoutSizing, setItemSpacing } from "./commands/layout.js";
 
 // Command imports — components
 import {
@@ -69,15 +65,7 @@ import {
 } from "./commands/scan.js";
 
 // Command imports — styles & variables
-import {
-  getStyles,
-  getLocalVariables,
-  getLocalComponents,
-  bindVariable,
-  batchBindVariables,
-  setTextStyle,
-  batchSetTextStyles,
-} from "./commands/styles.js";
+import { getStyles, getLocalVariables, getLocalComponents } from "./commands/styles.js";
 
 // Command imports — connections & navigation
 import { setDefaultConnector, createConnections, setFocus, setSelections } from "./commands/connections.js";
@@ -115,13 +103,11 @@ var READ_OPS = {
 
 var GLOBAL_OPS = {
   create: true,
+  apply: true,
   delete_multiple_nodes: true,
   combine_as_variants: true,
   reorder_children: true,
   create_connections: true,
-  set_multiple_properties: true,
-  batch_bind_variables: true,
-  batch_set_text_styles: true,
   set_multiple_text_contents: true,
   set_multiple_annotations: true,
   set_instance_overrides: true,
@@ -248,10 +234,8 @@ async function handleCommand(command, params) {
       return await readMyDesign();
     case "create":
       return await create(params);
-    case "set_fill_color":
-      return await setFillColor(params);
-    case "set_stroke_color":
-      return await setStrokeColor(params);
+    case "apply":
+      return await apply(params);
     case "move_node":
       return await moveNode(params);
     case "resize_node":
@@ -276,8 +260,6 @@ async function handleCommand(command, params) {
       return await importLibraryComponent(params);
     case "export_node_as_image":
       return await exportNodeAsImage(params);
-    case "set_corner_radius":
-      return await setCornerRadius(params);
     case "set_text_content":
       return await setTextContent(params);
     case "rename_node":
@@ -334,16 +316,6 @@ async function handleCommand(command, params) {
       throw new Error("Missing targetNodeIds parameter");
     case "swap_component_variant":
       return await swapComponentVariant(params);
-    case "set_layout_mode":
-      return await setLayoutMode(params);
-    case "set_padding":
-      return await setPadding(params);
-    case "set_axis_align":
-      return await setAxisAlign(params);
-    case "set_layout_sizing":
-      return await setLayoutSizing(params);
-    case "set_item_spacing":
-      return await setItemSpacing(params);
     case "get_reactions":
       if (!params || !params.nodeIds || !Array.isArray(params.nodeIds)) {
         throw new Error("Missing or invalid nodeIds parameter");
@@ -359,8 +331,6 @@ async function handleCommand(command, params) {
       return await setSelections(params);
     case "reorder_children":
       return await reorderChildren(params);
-    case "set_multiple_properties":
-      return await setMultipleProperties(params);
     case "clone_and_modify":
       return await cloneAndModify(params);
     case "get_main_component":
@@ -375,14 +345,6 @@ async function handleCommand(command, params) {
       return await deleteComponentProperty(params);
     case "set_exposed_instance":
       return await setExposedInstance(params);
-    case "bind_variable":
-      return await bindVariable(params);
-    case "batch_bind_variables":
-      return await batchBindVariables(params);
-    case "set_text_style":
-      return await setTextStyle(params);
-    case "batch_set_text_styles":
-      return await batchSetTextStyles(params);
     default:
       throw new Error(`Unknown command: ${command}`);
   }

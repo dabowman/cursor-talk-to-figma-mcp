@@ -27,7 +27,7 @@ bun run check            # Lint + format check combined
 ## Architecture
 
 ### MCP Server (`src/figmagent_mcp/`)
-Modular server implementing MCP via `@modelcontextprotocol/sdk`. Entry point is `server.ts` which imports domain-grouped tool modules from `tools/` (document, create, modify, text, layout, components, export, scan, libraries) and prompt definitions from `prompts/`. Exposes 60+ tools and 6 AI prompts. Types in `types.ts`, utilities in `utils.ts`, WebSocket connection management in `connection.ts`. Communicates with the AI agent over stdio and with the WebSocket relay via `ws`. Each request gets a UUID, is tracked in a `pendingRequests` Map with timeout/promise callbacks, and resolves when the plugin responds.
+Modular server implementing MCP via `@modelcontextprotocol/sdk`. Entry point is `server.ts` which imports domain-grouped tool modules from `tools/` (document, create, apply, modify, text, components, export, scan, libraries) and prompt definitions from `prompts/`. Exposes 50+ tools and 6 AI prompts. Types in `types.ts`, utilities in `utils.ts`, WebSocket connection management in `connection.ts`. Communicates with the AI agent over stdio and with the WebSocket relay via `ws`. Each request gets a UUID, is tracked in a `pendingRequests` Map with timeout/promise callbacks, and resolves when the plugin responds.
 
 ### WebSocket Relay (`src/socket.ts`)
 Lightweight Bun WebSocket server on port 3055 (configurable via `PORT` env). Routes messages between MCP server and Figma plugin using channel-based isolation. Clients call `join` to enter a channel; messages broadcast only within the same channel. Exposes `GET /channels` HTTP endpoint for auto-discovery of active channels.
@@ -41,12 +41,12 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 - `src/setcharacters.js` — font-safe text replacement (handles mixed fonts)
 - `src/commands/document.js` — getDocumentInfo, getSelection, getNodeInfo, readMyDesign, getNodeTree (FSGN traversal), exportNodeAsImage
 - `src/commands/create.js` — create (single nodes and nested trees)
-- `src/commands/modify.js` — setFillColor, moveNode, deleteNode, cloneAndModify, etc.
+- `src/commands/apply.js` — unified property application: fill, stroke, corner radius, opacity, layout, variables, text styles
+- `src/commands/modify.js` — moveNode, resizeNode, renameNode, deleteNode, cloneNode, cloneAndModify, reorderChildren
 - `src/commands/text.js` — setTextContent, setMultipleTextContents
-- `src/commands/layout.js` — setLayoutMode, setPadding, setAxisAlign, setLayoutSizing, setItemSpacing
 - `src/commands/components.js` — createComponent, combineAsVariants, instance overrides, component properties, exposed instances, etc.
 - `src/commands/scan.js` — scanTextNodes, scanNodesByTypes, annotations
-- `src/commands/styles.js` — getStyles, getLocalVariables, bindVariable, batchSetTextStyles, etc.
+- `src/commands/styles.js` — getStyles, getLocalVariables, getLocalComponents, FIELD_MAP (shared with apply.js)
 - `src/commands/connections.js` — setDefaultConnector, createConnections, setFocus, setSelections
 
 **JS constraints**: The bundled `code.js` runs in Figma's sandboxed JS VM. The source files are modern ES modules (arrow functions, let/const, template literals are all fine — bun bundles them into an IIFE). However, do **not** use optional chaining (`?.`) or nullish coalescing (`??`) in source files — Biome enforces this via `useOptionalChain: off` override. After editing source files, run `bun run build:plugin` to regenerate `code.js`.
@@ -59,12 +59,12 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 - **Chunking**: Large operations (scanning 100+ nodes) are chunked with progress updates to prevent Figma UI freezing.
 - **Reconnection**: WebSocket auto-reconnects after 2 seconds on disconnect.
 - **Zod validation**: All tool parameters are validated with Zod schemas.
-- **Batch operations**: Prefer `set_multiple_text_contents`, `delete_multiple_nodes`, `set_multiple_annotations`, `set_multiple_properties` over repeated single-node calls. Use `create` for all node creation — it handles both single nodes and nested trees.
+- **Batch operations**: Prefer `set_multiple_text_contents`, `delete_multiple_nodes`, `set_multiple_annotations` over repeated single-node calls. Use `create` for all node creation — it handles both single nodes and nested trees. Use `apply` for all property changes — it handles fill, stroke, corner radius, opacity, layout, variables, and text styles on one or many nodes.
 - **Tree inspection**: Prefer `get_node_tree` over `read_my_design` or repeated `get_node_info` calls. Use `detail="structure"` for orientation (~5 tokens/node), `detail="layout"` for building/cloning (~15 tokens/node), `detail="full"` for variable/style audits (~30 tokens/node). Start with `depth=3` for component internals. Instances are leaf nodes by default — call `get_node_tree` on an instance ID to expand its internals. If `tokenEstimate > 8000`, narrow with `depth` or `filter`.
 - **Layout inspection**: `get_node_tree` and `get_node_info` return auto-layout properties (layoutMode, sizing modes, alignment, spacing, padding, layoutWrap) on frames with active auto-layout. Default values (MIN alignment, zero spacing/padding, NO_WRAP) are omitted to keep output concise.
-- **FSGN format**: `get_node_tree` returns YAML in Figma Scene Graph Notation. The `meta` section has `nodeCount` and `tokenEstimate`. The `defs` section deduplicates variables (`v1`, `v2`…), styles (`s1`, `s2`…), and components (`c1`, `c2`…) referenced throughout `nodes`. Use the short IDs from `defs` when calling `bind_variable` or `set_text_style`.
-- **Design tokens**: Use `get_local_variables` to discover variables, then `batch_bind_variables` to bind them to node properties in bulk. For single bindings, `bind_variable` also works. Color variables bind via `setBoundVariableForPaint`; scalar variables bind via `setBoundVariable`.
-- **Text styles**: Use `get_styles` to discover text styles, then `batch_set_text_styles` to apply them to multiple text nodes at once (deduplicates font loading). For single nodes, `set_text_style` also works.
+- **FSGN format**: `get_node_tree` returns YAML in Figma Scene Graph Notation. The `meta` section has `nodeCount` and `tokenEstimate`. The `defs` section deduplicates variables (`v1`, `v2`…), styles (`s1`, `s2`…), and components (`c1`, `c2`…) referenced throughout `nodes`. Use the short IDs from `defs` when calling `apply` with `variables` or `textStyleId`.
+- **Design tokens**: Use `get_local_variables` to discover variables, then `apply` with `variables` field to bind them to node properties. Supports all fields in FIELD_MAP (fill, stroke, opacity, cornerRadius, padding, spacing, width, height, visible, characters, etc.). Color variables bind via `setBoundVariableForPaint`; scalar variables bind via `setBoundVariable`.
+- **Text styles**: Use `get_styles` to discover text styles, then `apply` with `textStyleId` to apply them. The `apply` tool deduplicates font loading across multiple nodes automatically.
 - **Component properties**: Use `get_component_properties` to discover property definitions (names with #suffix, types, defaults). Then `add_component_property` to add BOOLEAN/TEXT/INSTANCE_SWAP/VARIANT properties, `edit_component_property` to rename or change defaults, `delete_component_property` to remove. BOOLEAN defaults are real booleans; all others are strings.
 - **Exposed instances vs slots**: `set_exposed_instance` sets `isExposedInstance` on a nested INSTANCE, which surfaces that instance's component properties at the parent level (so users don't need to deep-select to find them). This is NOT the same as Figma's newer "Slot" feature. Slots are a distinct component property type (flexible content areas where users can add/remove/reorder any content) but have no plugin API support yet — they can only be created through the Figma UI.
 - **Comments**: Use `get_comments`, `post_comment`, `delete_comment` to read/write Figma file comments via REST API. Requires `FIGMA_API_TOKEN` with `file_comments:read` and `file_comments:write` scopes. The `fileKey` param comes from the Figma URL: `https://www.figma.com/design/<fileKey>/...`
@@ -74,13 +74,16 @@ Runs inside Figma. Source lives in `src/figma_plugin/src/` as ES modules, bundle
 These are hard-won patterns from real agent sessions. Violating them causes silent failures or wasted tool calls.
 
 ### Sizing sequencing
-Cannot set `FILL` sizing at frame creation time — the frame isn't yet a child of an auto-layout parent when the property is set. **Pattern**: Create the frame first (with `parentId`), THEN call `set_layout_sizing` separately. The `create` tool handles this automatically with two-pass sizing.
+Cannot set `FILL` sizing at frame creation time — the frame isn't yet a child of an auto-layout parent when the property is set. **Pattern**: Create the frame first (with `parentId`), THEN call `apply` with `layoutSizingHorizontal`/`layoutSizingVertical` separately. The `create` tool handles this automatically with two-pass sizing.
 
 ### Use FRAME, not RECTANGLE, for stretchy shapes
 RECTANGLE nodes cannot have `layoutSizingVertical: FILL`. Use a FRAME with a fill color instead. Example: a 1px-wide FRAME replaces a RECTANGLE for timeline connecting lines.
 
 ### `create` tool capabilities
 The `create` tool is the single entry point for all node creation. It accepts a node spec that can be a single node or a nested tree. Supported properties: `cornerRadius`, `strokeColor` + `strokeWeight`, font properties (`fontWeight`, `fontSize`, `fontFamily`, `fontStyle`, `fontColor`) on TEXT nodes, `fillColor`, and all auto-layout properties on FRAMEs. FILL sizing is applied in a second pass after all nodes exist. The root node's FILL sizing works if the parent has auto-layout.
+
+### `apply` tool capabilities
+The `apply` tool is the single entry point for modifying properties on existing nodes. It accepts a flat list or nested tree of node operations. Each operation targets a `nodeId` and can set any combination of: `fillColor`, `strokeColor`, `strokeWeight`, `cornerRadius`, `opacity`, `width`, `height`, layout properties (`layoutMode`, `layoutWrap`, padding, alignment, sizing, spacing), `variables` (map of field→variableId for design token bindings), and `textStyleId`. Execution order per node: layout mode → direct values → variable bindings → text style. Variable bindings override direct values (set both for fallback + token).
 
 ### Instance text override ID format
 For text overrides on instances, use the path format `I<instanceId>;<componentTextNodeId>`. For nested instances: `I<outerInstance>;<innerInstance>;<textNodeId>`. Use `scan_text_nodes` on the component to discover text node IDs first.
@@ -100,7 +103,7 @@ When new tools are added to the MCP server source, they won't appear until the M
 ## Concurrency & Sub-Agents
 
 ### Plugin concurrency control
-The plugin classifies operations: `READ_OPS` run freely, `GLOBAL_OPS` (e.g., `create`, `batch_bind_variables`, `delete_multiple_nodes`) serialize via global mutex, and per-node writes lock by `nodeId`. Max 6 concurrent in-flight operations. This makes parallel agent execution safe when agents operate on disjoint node sets.
+The plugin classifies operations: `READ_OPS` run freely, `GLOBAL_OPS` (e.g., `create`, `apply`, `delete_multiple_nodes`) serialize via global mutex, and per-node writes lock by `nodeId`. Max 6 concurrent in-flight operations. This makes parallel agent execution safe when agents operate on disjoint node sets.
 
 ### Sub-agent architecture
 For large Figma tasks (8+ variants, 100+ tool calls), use the `/figma-sub-agents` skill to delegate work:
