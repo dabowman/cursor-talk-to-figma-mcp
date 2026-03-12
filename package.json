@@ -12,7 +12,8 @@
     "format": "bunx biome format --write .",
     "check": "bunx biome check .",
     "build:plugin": "bun run src/figma_plugin/build.js",
-    "transcribe": "claude-code-transcripts all -s ~/.claude/projects/-Users-davidbowman-Github-cursor-talk-to-figma-mcp -o ~/Github/cursor-talk-to-figma-mcp/.claude/transcripts --include-agents"
+    "transcribe": "claude-code-transcripts all -s ~/.claude/projects/-Users-davidbowman-Github-cursor-talk-to-figma-mcp -o ~/Github/cursor-talk-to-figma-mcp/.claude/transcripts --include-agents",
+    "extract-sessions": "bun scripts/extract-sessions.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
