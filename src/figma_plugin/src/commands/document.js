@@ -268,7 +268,7 @@ export async function getReactions(nodeIds) {
 
 // ─── get_node_tree helpers ────────────────────────────────────────────────────
 
-function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVarIds, collStyleIds, collCompIds) {
+async function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVarIds, collStyleIds, collCompIds) {
   if (detail === "structure") {
     return { id: n.id, name: n.name, type: n.type };
   }
@@ -309,7 +309,7 @@ function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVarIds, 
 
   // instance: componentRef + componentProperties
   if (n.type === "INSTANCE" && inclComp) {
-    const mc = n.mainComponent;
+    const mc = await n.getMainComponentAsync();
     if (mc) {
       out.componentRef = "COMP::" + mc.id;
       collCompIds[mc.id] = true;
@@ -429,7 +429,7 @@ export async function getNodeTree(params) {
 
   // walkNode returns an array of output nodes.
   // When a node is filtered out (type/name mismatch), its matching children are promoted up.
-  function walkNode(n, currentDepthFromRoot) {
+  async function walkNode(n, currentDepthFromRoot) {
     nodeCount++;
 
     const isVisible = n.visible !== false;
@@ -449,7 +449,7 @@ export async function getNodeTree(params) {
     const childResults = [];
     if (shouldExpand) {
       for (const child of n.children) {
-        const sub = walkNode(child, currentDepthFromRoot + 1);
+        const sub = await walkNode(child, currentDepthFromRoot + 1);
         for (const item of sub) {
           childResults.push(item);
         }
@@ -461,7 +461,7 @@ export async function getNodeTree(params) {
       return childResults;
     }
 
-    const out = buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVarIds, collStyleIds, collCompIds);
+    const out = await buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVarIds, collStyleIds, collCompIds);
 
     if (childResults.length > 0) {
       out.children = childResults;
@@ -474,7 +474,7 @@ export async function getNodeTree(params) {
     return [out];
   }
 
-  const treeNodes = walkNode(root, 0);
+  const treeNodes = await walkNode(root, 0);
 
   // Phase 2: batch async resolution of collected IDs
   const resolvedVars = {};
