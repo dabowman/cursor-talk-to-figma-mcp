@@ -126,7 +126,7 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 |------|-------------|
 | `get_styles` | Get local text/paint/effect styles |
 | `get_local_variables` | Get all variable collections, modes, and values |
-| `get_local_components` | Get local components (optional name filter) |
+| `get_local_components` | Get component sets and standalone components by name, with variant axes and conditional variant lists |
 | `create_component` | Create a new component |
 | `combine_as_variants` | Combine components into a variant set |
 | `create_component_instance` | Create an instance (supports `componentId` + `parentId`) |

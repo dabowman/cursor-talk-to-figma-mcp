@@ -84,17 +84,66 @@ export async function getLocalVariables() {
 export async function getLocalComponents() {
   await figma.loadAllPagesAsync();
 
-  const components = figma.root.findAllWithCriteria({
-    types: ["COMPONENT"],
+  const componentSets = figma.root.findAllWithCriteria({
+    types: ["COMPONENT_SET"],
   });
 
+  const standaloneComponents = figma.root
+    .findAllWithCriteria({
+      types: ["COMPONENT"],
+    })
+    .filter((c) => !c.parent || c.parent.type !== "COMPONENT_SET");
+
+  const results = [];
+
+  for (let i = 0; i < componentSets.length; i++) {
+    const set = componentSets[i];
+    const axesMap = {};
+    const variants = [];
+    for (let j = 0; j < set.children.length; j++) {
+      const child = set.children[j];
+      if (child.type !== "COMPONENT") continue;
+      variants.push({
+        id: child.id,
+        name: child.name,
+        key: "key" in child ? child.key : null,
+      });
+      const pairs = child.name.split(",");
+      for (let k = 0; k < pairs.length; k++) {
+        const pair = pairs[k].trim();
+        const eqIdx = pair.indexOf("=");
+        if (eqIdx === -1) continue;
+        const propName = pair.substring(0, eqIdx).trim();
+        const propVal = pair.substring(eqIdx + 1).trim();
+        if (!axesMap[propName]) axesMap[propName] = [];
+        if (axesMap[propName].indexOf(propVal) === -1) axesMap[propName].push(propVal);
+      }
+    }
+    results.push({
+      id: set.id,
+      name: set.name,
+      key: "key" in set ? set.key : null,
+      type: "COMPONENT_SET",
+      variantCount: variants.length,
+      variantAxes: axesMap,
+      defaultVariant: set.defaultVariant && set.defaultVariant.name ? set.defaultVariant.name : null,
+      variants: variants,
+    });
+  }
+
+  for (let i = 0; i < standaloneComponents.length; i++) {
+    const comp = standaloneComponents[i];
+    results.push({
+      id: comp.id,
+      name: comp.name,
+      key: "key" in comp ? comp.key : null,
+      type: "COMPONENT",
+    });
+  }
+
   return {
-    count: components.length,
-    components: components.map((component) => ({
-      id: component.id,
-      name: component.name,
-      key: "key" in component ? component.key : null,
-    })),
+    count: results.length,
+    components: results,
   };
 }
 
