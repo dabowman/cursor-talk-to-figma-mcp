@@ -241,6 +241,31 @@ Instances are shown as leaf nodes by default — call get on the instance ID to 
       const yamls = results.map((result) => buildFsgn(result, params));
       const output = yamls.length === 1 ? yamls[0] : yamls.join("\n---\n");
 
+      // Guard against responses that would overflow the MCP transport layer
+      const MAX_CHARS = 100_000;
+      if (output.length > MAX_CHARS) {
+        // Extract meta section to give the agent useful context
+        const metaMatch = output.match(/^meta:[\s\S]*?(?=\ndefs:|$)/m);
+        const metaSnippet = metaMatch ? metaMatch[0].trim() : "";
+        return {
+          content: [
+            {
+              type: "text",
+              text: [
+                `Response too large (${output.length.toLocaleString()} chars). Narrow the query and retry:`,
+                `  • Lower depth — try depth=1 or depth=2`,
+                `  • Use detail="structure" (cheapest, ~5 tokens/node)`,
+                `  • Target a specific child node instead of the whole section`,
+                `  • Use find() to locate the nodes you need first`,
+                metaSnippet ? `\nMeta from the attempted query:\n${metaSnippet}` : "",
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            },
+          ],
+        };
+      }
+
       return {
         content: [
           {

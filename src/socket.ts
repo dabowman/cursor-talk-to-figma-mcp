@@ -195,9 +195,12 @@ const server = Bun.serve({
       }
     },
     close(ws: ServerWebSocket<any>) {
-      // Remove client from their channel
-      channels.forEach((clients) => {
+      // Remove client from all channels and delete empty channel entries
+      channels.forEach((clients, name) => {
         clients.delete(ws);
+        if (clients.size === 0) {
+          channels.delete(name);
+        }
       });
     },
   },

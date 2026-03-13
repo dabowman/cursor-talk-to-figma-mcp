@@ -11,6 +11,10 @@ server.prompt("design_workflow", "End-to-end workflow for reading, creating, and
           type: "text",
           text: `# Figma Design Workflow
 
+## Phase 0: Connect (required before anything else)
+
+\`join_channel()\` — connects to the active Figma plugin. Call with no arguments to auto-discover. If multiple channels are listed, ask the user which file they want to work in, then call \`join_channel({ channel: "name" })\`.
+
 ## Phase 1: Orient
 
 1. \`get_document_info()\` — understand pages and top-level frames.
