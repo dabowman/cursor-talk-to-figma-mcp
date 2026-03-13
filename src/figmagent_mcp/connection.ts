@@ -172,87 +172,78 @@ export async function joinChannel(channelName: string): Promise<void> {
   }
 }
 
+// Auto-discover and join the sole active channel, or throw a descriptive error.
+async function autoJoinChannel(): Promise<void> {
+  const channels = await discoverChannels(activePort);
+  const names = Object.keys(channels);
+  if (names.length === 1) {
+    await joinChannel(names[0]);
+    logger.info(`Auto-joined channel: ${names[0]}`);
+  } else if (names.length > 1) {
+    const listing = names.map((n) => `  • ${n}`).join("\n");
+    throw new Error(
+      `Multiple Figma files are open. Call join_channel with the file you want:\n${listing}`,
+    );
+  } else {
+    throw new Error(
+      "No active Figma channels found. Make sure the Figma plugin is open and connected.",
+    );
+  }
+}
+
 // Function to send commands to Figma
 export function sendCommandToFigma(
   command: FigmaCommand,
   params: unknown = {},
   timeoutMs: number = 30000,
 ): Promise<unknown> {
-  return new Promise(async (resolve, reject) => {
-    // If not connected, try to connect first
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      connectToFigma();
-      reject(new Error("Not connected to Figma. Attempting to connect..."));
-      return;
-    }
+  // If not connected, kick off reconnect and fail fast
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connectToFigma();
+    return Promise.reject(new Error("Not connected to Figma. Attempting to connect..."));
+  }
 
-    // Check if we need a channel for this command
-    const requiresChannel = command !== "join";
-    if (requiresChannel && !currentChannel) {
-      // Try to auto-discover and join before giving up
-      try {
-        const channels = await discoverChannels(activePort);
-        const names = Object.keys(channels);
-        if (names.length === 1) {
-          await joinChannel(names[0]);
-          logger.info(`Auto-joined channel: ${names[0]}`);
-        } else if (names.length > 1) {
-          const listing = names.map((n) => `  • ${n}`).join("\n");
-          reject(
-            new Error(
-              `Multiple Figma files are open. Call join_channel with the file you want:\n${listing}`,
-            ),
-          );
-          return;
-        } else {
-          reject(
-            new Error(
-              "No active Figma channels found. Make sure the Figma plugin is open and connected.",
-            ),
-          );
-          return;
-        }
-      } catch (discoveryError) {
-        reject(new Error("Must join a channel before sending commands"));
-        return;
-      }
-    }
+  // For non-join commands with no channel, attempt auto-join first then send
+  const requiresChannel = command !== "join";
+  const channelReady: Promise<void> =
+    requiresChannel && !currentChannel ? autoJoinChannel() : Promise.resolve();
 
-    const id = uuidv4();
-    const request = {
-      id,
-      type: command === "join" ? "join" : "message",
-      ...(command === "join" ? { channel: (params as any).channel } : { channel: currentChannel }),
-      message: {
-        id,
-        command,
-        params: {
-          ...(params as any),
-          commandId: id, // Include the command ID in params
-        },
-      },
-    };
+  return channelReady.then(
+    () =>
+      new Promise((resolve, reject) => {
+        const id = uuidv4();
+        const request = {
+          id,
+          type: command === "join" ? "join" : "message",
+          ...(command === "join" ? { channel: (params as any).channel } : { channel: currentChannel }),
+          message: {
+            id,
+            command,
+            params: {
+              ...(params as any),
+              commandId: id,
+            },
+          },
+        };
 
-    // Set timeout for request
-    const timeout = setTimeout(() => {
-      if (pendingRequests.has(id)) {
-        pendingRequests.delete(id);
-        logger.error(`Request ${id} to Figma timed out after ${timeoutMs / 1000} seconds`);
-        reject(new Error("Request to Figma timed out"));
-      }
-    }, timeoutMs);
+        const timeout = setTimeout(() => {
+          if (pendingRequests.has(id)) {
+            pendingRequests.delete(id);
+            logger.error(`Request ${id} to Figma timed out after ${timeoutMs / 1000} seconds`);
+            reject(new Error("Request to Figma timed out"));
+          }
+        }, timeoutMs);
 
-    // Store the promise callbacks to resolve/reject later
-    pendingRequests.set(id, {
-      resolve,
-      reject,
-      timeout,
-      lastActivity: Date.now(),
-    });
+        pendingRequests.set(id, {
+          resolve,
+          reject,
+          timeout,
+          lastActivity: Date.now(),
+        });
 
-    // Send the request
-    logger.info(`Sending command to Figma: ${command}`);
-    logger.debug(`Request details: ${JSON.stringify(request)}`);
-    ws.send(JSON.stringify(request));
-  });
+        logger.info(`Sending command to Figma: ${command}`);
+        logger.debug(`Request details: ${JSON.stringify(request)}`);
+        ws.send(JSON.stringify(request));
+      }),
+  );
 }
