@@ -1,7 +1,7 @@
 // Main entry point for the Figma plugin
 // Bundles into code.js via `bun build`
 
-import { state } from "./helpers.js";
+import { state, sanitizeSymbols } from "./helpers.js";
 
 // Command imports — document
 import {
@@ -226,7 +226,7 @@ async function routeCommand(id, command, params) {
     figma.ui.postMessage({
       type: "command-result",
       id: id,
-      result: result,
+      result: sanitizeSymbols(result),
     });
   } catch (error) {
     figma.ui.postMessage({

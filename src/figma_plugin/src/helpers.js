@@ -145,6 +145,30 @@ export function customBase64Encode(bytes) {
   return base64;
 }
 
+// Recursively convert Symbol values (e.g. figma.mixed) to the string "mixed".
+// Symbols crash figma.ui.postMessage (structured clone can't handle them).
+export function sanitizeSymbols(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "symbol") return "mixed";
+  if (typeof obj === "number" || typeof obj === "string" || typeof obj === "boolean") return obj;
+  if (Array.isArray(obj)) {
+    const out = [];
+    for (let i = 0; i < obj.length; i++) {
+      out.push(sanitizeSymbols(obj[i]));
+    }
+    return out;
+  }
+  if (typeof obj === "object") {
+    const out = {};
+    const keys = Object.keys(obj);
+    for (let i = 0; i < keys.length; i++) {
+      out[keys[i]] = sanitizeSymbols(obj[keys[i]]);
+    }
+    return out;
+  }
+  return obj;
+}
+
 // Filter a Figma node tree for serializable output (strips vectors, bindings, image refs)
 export function filterFigmaNode(node) {
   if (node.type === "VECTOR") {

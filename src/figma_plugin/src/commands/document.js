@@ -317,19 +317,43 @@ async function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVa
       out.componentRef = "(unresolved)";
     }
     if (n.componentProperties) {
-      out.componentProperties = n.componentProperties;
+      // Strip preferredValues from instance componentProperties — they're only useful
+      // on definitions and can be 200+ entries per INSTANCE_SWAP property.
+      const cleaned = {};
+      const propKeys = Object.keys(n.componentProperties);
+      for (let i = 0; i < propKeys.length; i++) {
+        const k = propKeys[i];
+        const prop = n.componentProperties[k];
+        cleaned[k] = { type: prop.type, value: prop.value };
+        if (prop.boundVariables) {
+          cleaned[k].boundVariables = prop.boundVariables;
+        }
+      }
+      out.componentProperties = cleaned;
     }
   }
 
   // component property definitions (COMPONENT_SET nodes and non-variant COMPONENT nodes)
   // Variant components (children of COMPONENT_SET) don't own property definitions — accessing throws.
   // Check isVariant BEFORE touching the property, as the Figma API throws on access for variants.
-  if (n.type === "COMPONENT_SET") {
-    out.componentPropertyDefinitions = n.componentPropertyDefinitions;
-  } else if (n.type === "COMPONENT") {
-    const isVariant = n.parent && n.parent.type === "COMPONENT_SET";
-    if (!isVariant) {
-      out.componentPropertyDefinitions = n.componentPropertyDefinitions;
+  if (n.type === "COMPONENT_SET" || (n.type === "COMPONENT" && !(n.parent && n.parent.type === "COMPONENT_SET"))) {
+    const rawDefs = n.componentPropertyDefinitions;
+    if (rawDefs) {
+      const cleanedDefs = {};
+      const defKeys = Object.keys(rawDefs);
+      for (let i = 0; i < defKeys.length; i++) {
+        const k = defKeys[i];
+        const def = rawDefs[k];
+        const entry = { type: def.type, defaultValue: def.defaultValue };
+        if (def.variantOptions) {
+          entry.variantOptions = def.variantOptions;
+        }
+        if (def.preferredValues && def.preferredValues.length > 0) {
+          entry.preferredValuesCount = def.preferredValues.length;
+        }
+        cleanedDefs[k] = entry;
+      }
+      out.componentPropertyDefinitions = cleanedDefs;
     }
   }
 
@@ -340,7 +364,7 @@ async function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVa
 
   // full level: fills, strokes, variable bindings, text style
   if (detail === "full") {
-    if (n.fills && n.fills.length > 0) {
+    if (n.fills && typeof n.fills !== "symbol" && n.fills.length > 0) {
       out.fills = n.fills.map((fill) => {
         const f = { type: fill.type };
         if (fill.color) f.color = rgbaToHex(fill.color);
@@ -350,17 +374,17 @@ async function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVa
       });
     }
 
-    if (n.strokes && n.strokes.length > 0) {
+    if (n.strokes && typeof n.strokes !== "symbol" && n.strokes.length > 0) {
       out.strokes = n.strokes.map((stroke) => {
         const s = { type: stroke.type };
         if (stroke.color) s.color = rgbaToHex(stroke.color);
-        if (n.strokeWeight) s.weight = n.strokeWeight;
+        if (n.strokeWeight && typeof n.strokeWeight !== "symbol") s.weight = n.strokeWeight;
         if (n.strokeAlign) s.align = n.strokeAlign;
         return s;
       });
     }
 
-    if (n.cornerRadius !== undefined && n.cornerRadius !== null) {
+    if (n.cornerRadius !== undefined && n.cornerRadius !== null && typeof n.cornerRadius !== "symbol") {
       out.cornerRadius = n.cornerRadius;
     }
 
