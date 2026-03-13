@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { server } from "../instance.js";
 import { sendCommandToFigma } from "../connection.js";
+import { guardOutput, extractJsonSummary } from "../utils.js";
 
 // Get Design System Tool — unified styles + variables discovery
 server.tool(
@@ -13,15 +14,32 @@ Returns:
 
 Use this to discover the design system before applying styles/tokens with the apply tool.
 Works on any Figma plan — no Enterprise required.`,
-  {},
-  async () => {
+  {
+    maxOutputChars: z
+      .number()
+      .int()
+      .min(1000)
+      .optional()
+      .describe("Max response size in characters. Default: 30000. Raise for large design systems."),
+  },
+  async (params: { maxOutputChars?: number }) => {
     try {
       const result = await sendCommandToFigma("get_design_system");
+      const jsonText = JSON.stringify(result);
+      const guarded = guardOutput(jsonText, {
+        maxChars: params.maxOutputChars,
+        metaExtractor: extractJsonSummary,
+        toolName: "get_design_system",
+        narrowingHints: [
+          "  • This file has a large design system",
+          "  • Use find() to locate specific tokens by name or usage",
+        ],
+      });
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(result),
+            text: guarded.text,
           },
         ],
       };

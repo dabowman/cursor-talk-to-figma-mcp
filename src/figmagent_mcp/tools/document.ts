@@ -2,6 +2,7 @@ import { z } from "zod";
 import { server } from "../instance.js";
 import { sendCommandToFigma } from "../connection.js";
 import { serializeYaml } from "../yaml.js";
+import { guardOutput, extractYamlMeta } from "../utils.js";
 
 // ─── FSGN helpers ────────────────────────────────────────────────────────────
 
@@ -160,14 +161,16 @@ server.tool(
   "get",
   `Read one or more Figma nodes and their subtrees. Returns structured YAML (FSGN format) with deduplicated variable, style, and component definitions.
 
-Use detail levels strategically:
-  - "structure": IDs, names, types, child counts only (~5 tokens/node). Use first for orientation.
+IMPORTANT: Always start with detail="structure" and depth=2 for orientation. Only increase detail or depth after reviewing the structure. Going straight to detail="full" with high depth risks hitting the output budget.
+
+Detail levels (pick the cheapest that works):
+  - "structure": IDs, names, types, child counts only (~5 tokens/node). Use first.
   - "layout": + dimensions, auto-layout, text content, componentRef/properties (~15 tokens/node). Use for building.
   - "full": + fills, strokes, variable bindings, text styles (~30 tokens/node). Use for styling.
 
-Pass a single nodeId for one node, or nodeIds for multiple nodes (returns one FSGN block per node, separated by "---").
-Start with depth=3 for component internals. For large responses (tokenEstimate >8000), narrow with depth or filter.
-Instances are shown as leaf nodes by default — call get on the instance ID to expand its internals.`,
+Workflow: get_document_info() → get(nodeId, detail="structure", depth=2) → narrow with depth/filter → get specific nodes at higher detail.
+Use find() to locate nodes by criteria before calling get() on them.
+Instances are leaf nodes by default — call get on the instance ID to expand its internals.`,
   {
     nodeId: z.string().optional().describe("ID of a single node to read"),
     nodeIds: z.array(z.string()).optional().describe("IDs of multiple nodes to read in parallel"),
@@ -211,6 +214,12 @@ Instances are shown as leaf nodes by default — call get on the instance ID to 
       .boolean()
       .optional()
       .describe("Include component key, parent info for instances in defs.components. Default: true"),
+    maxOutputChars: z
+      .number()
+      .int()
+      .min(1000)
+      .optional()
+      .describe("Max response size in characters. Default: 30000. Raise when you need full unfiltered data."),
   },
   async (params: any) => {
     try {
@@ -241,36 +250,24 @@ Instances are shown as leaf nodes by default — call get on the instance ID to 
       const yamls = results.map((result) => buildFsgn(result, params));
       const output = yamls.length === 1 ? yamls[0] : yamls.join("\n---\n");
 
-      // Guard against responses that would overflow the MCP transport layer
-      const MAX_CHARS = 100_000;
-      if (output.length > MAX_CHARS) {
-        // Extract meta section to give the agent useful context
-        const metaMatch = output.match(/^meta:[\s\S]*?(?=\ndefs:|$)/m);
-        const metaSnippet = metaMatch ? metaMatch[0].trim() : "";
-        return {
-          content: [
-            {
-              type: "text",
-              text: [
-                `Response too large (${output.length.toLocaleString()} chars). Narrow the query and retry:`,
-                `  • Lower depth — try depth=1 or depth=2`,
-                `  • Use detail="structure" (cheapest, ~5 tokens/node)`,
-                `  • Target a specific child node instead of the whole section`,
-                `  • Use find() to locate the nodes you need first`,
-                metaSnippet ? `\nMeta from the attempted query:\n${metaSnippet}` : "",
-              ]
-                .filter(Boolean)
-                .join("\n"),
-            },
-          ],
-        };
-      }
+      // Apply output budget guard
+      const guarded = guardOutput(output, {
+        maxChars: params.maxOutputChars,
+        metaExtractor: extractYamlMeta,
+        toolName: "get",
+        narrowingHints: [
+          "  • Lower depth — try depth=1 or depth=2",
+          "  • Use detail=\"structure\" (~5 tokens/node)",
+          "  • Target a specific child node instead of the whole subtree",
+          "  • Use find() to locate the nodes you need first",
+        ],
+      });
 
       return {
         content: [
           {
             type: "text",
-            text: output,
+            text: guarded.text,
           },
         ],
       };

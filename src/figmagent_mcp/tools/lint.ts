@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { server } from "../instance.js";
 import { sendCommandToFigma } from "../connection.js";
+import { guardOutput, extractJsonSummary } from "../utils.js";
 
 const lintableProperties = z.enum([
   "fills",
@@ -60,11 +61,21 @@ Severity levels:
         maxIssues,
       });
 
+      const jsonText = JSON.stringify(result, null, 2);
+      const guarded = guardOutput(jsonText, {
+        metaExtractor: extractJsonSummary,
+        toolName: "lint_design",
+        narrowingHints: [
+          "  • Lower maxIssues to reduce output",
+          "  • Filter with the properties param to lint specific property types",
+          "  • Lint a smaller subtree",
+        ],
+      });
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(result, null, 2),
+            text: guarded.text,
           },
         ],
       };

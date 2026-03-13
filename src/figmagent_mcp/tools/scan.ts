@@ -2,11 +2,12 @@ import { z } from "zod";
 import { server } from "../instance.js";
 import { sendCommandToFigma } from "../connection.js";
 import { joinChannel, discoverChannels } from "../connection.js";
+import { guardOutput, extractJsonSummary } from "../utils.js";
 
 // Node Type Scanning Tool
 server.tool(
   "scan_nodes_by_types",
-  "Scan for child nodes with specific types in the selected Figma node",
+  "Scan for child nodes with specific types. Prefer find() for most searches — it supports more criteria and groups results by ancestor.",
   {
     nodeId: z.string().describe("ID of the node to scan"),
     types: z
@@ -48,6 +49,15 @@ server.tool(
         };
 
         const summaryText = `Scan completed: Found ${typedResult.count} nodes matching types: ${typedResult.searchedTypes.join(", ")}`;
+        const nodesJson = JSON.stringify(typedResult.matchingNodes, null, 2);
+        const guarded = guardOutput(nodesJson, {
+          metaExtractor: extractJsonSummary,
+          toolName: "scan_nodes_by_types",
+          narrowingHints: [
+            "  • Use find() instead — it supports more criteria and groups results",
+            "  • Search a specific subtree instead of a large parent",
+          ],
+        });
 
         return {
           content: [
@@ -58,7 +68,7 @@ server.tool(
             },
             {
               type: "text" as const,
-              text: JSON.stringify(typedResult.matchingNodes, null, 2),
+              text: guarded.text,
             },
           ],
         };

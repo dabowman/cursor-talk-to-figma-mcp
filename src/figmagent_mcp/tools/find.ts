@@ -2,6 +2,7 @@ import { z } from "zod";
 import { server } from "../instance.js";
 import { sendCommandToFigma } from "../connection.js";
 import { serializeYaml } from "../yaml.js";
+import { guardOutput, extractYamlMeta } from "../utils.js";
 
 server.tool(
   "find",
@@ -67,6 +68,12 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
       .optional()
       .default(200)
       .describe("Maximum number of matches to return (default: 200)"),
+    maxOutputChars: z
+      .number()
+      .int()
+      .min(1000)
+      .optional()
+      .describe("Max response size in characters. Default: 30000. Raise when you need full unfiltered data."),
   },
   async ({
     scope,
@@ -80,6 +87,7 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
     hasAnnotation,
     excludeDefinitions,
     maxResults,
+    maxOutputChars,
   }: {
     scope?: string;
     componentId?: string[];
@@ -92,6 +100,7 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
     hasAnnotation?: boolean;
     excludeDefinitions?: boolean;
     maxResults?: number;
+    maxOutputChars?: number;
   }) => {
     // Validate at least one search criterion
     const hasCriteria =
@@ -179,11 +188,23 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
         groups: typedResult.groups,
       };
 
+      const yamlText = serializeYaml(output);
+      const guarded = guardOutput(yamlText, {
+        maxChars: maxOutputChars,
+        metaExtractor: extractYamlMeta,
+        toolName: "find",
+        narrowingHints: [
+          "  • Lower maxResults",
+          "  • Add more criteria to narrow matches",
+          "  • Search a specific subtree instead of the whole page",
+        ],
+      });
+
       return {
         content: [
           {
             type: "text" as const,
-            text: serializeYaml(output),
+            text: guarded.text,
           },
         ],
       };
