@@ -307,3 +307,5 @@ Read these for detailed coverage on specific topics:
 | `references/variables-and-styles.md` | Setting up design tokens, creating variable collections/modes, choosing variables vs styles |
 | `references/gotchas-and-edge-cases.md` | Debugging errors, understanding why something failed, edge cases with fills/text/instances |
 | `references/collaboration-and-organization.md` | Adding comments/annotations, organizing files with sections, Dev Mode preparation, branching |
+
+**Post-session**: After completing a large Figma session (50+ tool calls), run `/analyze-session` to capture efficiency metrics, error patterns, and improvement recommendations.

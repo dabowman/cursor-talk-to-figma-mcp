@@ -358,3 +358,7 @@ TIME    ORCHESTRATOR              STYLER-A              STYLER-B
 - Parallel (3 agents): ~19 minutes (~1.9x speedup)
 
 The speedup scales with workload size. Design system builds with 50+ components see larger gains because build and style phases dominate.
+
+---
+
+**Post-session**: After completing a large Figma session (50+ tool calls), run `/analyze-session` to capture efficiency metrics, error patterns, and improvement recommendations.
