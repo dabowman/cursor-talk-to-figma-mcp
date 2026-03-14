@@ -21,14 +21,38 @@ import { readdir, readFile, mkdir, writeFile, stat } from "node:fs/promises";
 import { join, basename } from "node:path";
 import { parseArgs } from "node:util";
 
-const SESSION_DIR =
-	join(
-		process.env.HOME || "~",
-		".claude/projects/-Users-davidbowman-Github-cursor-talk-to-figma-mcp",
-	);
+// Auto-detect the session directory based on CWD
+function getSessionDir(): string {
+	const home = process.env.HOME || "~";
+	const projectsDir = join(home, ".claude/projects");
+	// The directory name is the CWD with path separators replaced by dashes, leading dash
+	const cwd = process.cwd();
+	const encoded = cwd.replace(/\//g, "-");
+	return join(projectsDir, encoded);
+}
+const SESSION_DIR = getSessionDir();
 const DEFAULT_OUT = join(process.cwd(), ".claude/sessions-json");
 
+// Pre-process argv: convert bare `--latest` to `--latest=1` so parseArgs accepts it
+const rawArgv = process.argv.slice(2);
+const processedArgv: string[] = [];
+for (let i = 0; i < rawArgv.length; i++) {
+	if (rawArgv[i] === "--latest") {
+		// Check if next arg looks like a number (the optional count)
+		const next = rawArgv[i + 1];
+		if (next && /^\d+$/.test(next)) {
+			processedArgv.push(`--latest=${next}`);
+			i++; // skip next
+		} else {
+			processedArgv.push("--latest=1");
+		}
+	} else {
+		processedArgv.push(rawArgv[i]!);
+	}
+}
+
 const { values: args } = parseArgs({
+	args: processedArgv,
 	options: {
 		session: { type: "string" },
 		latest: { type: "string" },
