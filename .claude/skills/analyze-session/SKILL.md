@@ -11,61 +11,67 @@ Analyze a Figma MCP test session transcript and produce a structured efficiency/
 
 ## Phase 1: Locate and Ingest Transcript
 
-1. If a file path argument was provided, use that. Otherwise, scan for the most recent transcript:
-   - Check `.claude/transcripts/` and `.claude/sessions-json/` for files sorted by modification time
-   - Accept both JSON and HTML formats
+1. If a file path argument was provided, use that. Otherwise, find the most recent transcript:
+   - **Primary**: Check `.claude/sessions-json/` for `.json` files (produced by `bun extract-sessions`)
+   - **Fallback**: Check `.claude/transcripts/` for HTML files (produced by `bun transcribe`)
+   - Sort by modification time, pick most recent.
 
-2. **For JSON transcripts** (preferred format — see schema below):
+2. **If no extracted JSON exists yet**, run `bun extract-sessions --latest --compact --no-thinking` to generate one from the most recent Claude Code session. This produces a structured JSON file in `.claude/sessions-json/`.
+
+3. **Reading the JSON transcript** (produced by `scripts/extract-sessions.ts`):
    - Read the file. If >500 lines, read in 500-line chunks.
-   - Extract events from the `events` array.
+   - The format is an `ExtractedSession` object with this structure:
 
-3. **For HTML transcripts** (fallback):
-   - Read page by page (each HTML file is one page).
-   - Extract tool call blocks using pattern matching: look for tool names, parameters, results, and error messages.
+   ```json
+   {
+     "sessionId": "uuid",
+     "extractedAt": "ISO-8601",
+     "metadata": {
+       "cwd": "/path/to/project",
+       "branch": "branch-name",
+       "version": "claude-code-version",
+       "messageCount": 120,
+       "toolCallCount": 89,
+       "uniqueTools": ["create", "apply", "get", ...],
+       "duration": { "start": "ISO-8601", "end": "ISO-8601", "minutes": 80 }
+     },
+     "messages": [
+       {
+         "role": "user" | "assistant" | "system",
+         "timestamp": "ISO-8601",
+         "content": [
+           { "type": "text", "text": "..." },
+           { "type": "tool_use", "id": "toolu_xxx", "name": "create", "input": { ... } },
+           { "type": "tool_result", "tool_use_id": "toolu_xxx", "content": "...", "is_error": true }
+         ],
+         "model": "claude-opus-4-6",
+         "usage": { "input_tokens": 1234, "output_tokens": 567 },
+         "uuid": "msg-uuid",
+         "parentUuid": "parent-msg-uuid"
+       }
+     ],
+     "subAgents": {
+       "agent-uuid": { /* same ExtractedSession structure */ }
+     }
+   }
+   ```
+
+   Key fields for analysis:
+   - `metadata.toolCallCount` and `metadata.uniqueTools` — pre-computed totals
+   - `metadata.duration.minutes` — session length
+   - Content blocks with `type: "tool_use"` — tool calls (`.name` = tool name, `.input` = params)
+   - Content blocks with `type: "tool_result"` — results (`.is_error` = true for failures, `.content` = error message or result)
+   - `subAgents` — nested sub-agent sessions (same structure, analyze separately then merge)
+   - `usage` on assistant messages — token consumption per turn
 
 4. **Three-pass approach** (critical for large transcripts — 800+ events):
-   - **Pass 1 (Extract)**: Read in chunks. For each event, record ONLY: timestamp, tool name, error status, target node ID, duration. Output a compact one-line-per-event summary. This reduces 300KB → ~15KB.
+   - **Pass 1 (Extract)**: Read in chunks. For each message, scan content blocks. For each `tool_use` block, record: timestamp, tool name, input params (extract nodeId if present). For each `tool_result` block, record: tool_use_id, is_error, error message snippet. Output a compact one-line-per-tool-call summary. This reduces 300KB → ~15KB.
    - **Pass 2 (Analyze)**: Over the compact summary, compute all metrics and identify patterns.
-   - **Pass 3 (Detail)**: For each flagged issue/error pattern, go back to the original transcript to extract specific context (error messages, parameter values, cascading effects).
+   - **Pass 3 (Detail)**: For each flagged issue/error pattern, go back to the original transcript to extract specific context (full error messages, parameter values, cascading effects).
 
-### Recommended JSON Transcript Schema
-
-For optimal automated analysis, transcripts should follow this structure:
-
-```json
-{
-  "sessionId": "uuid",
-  "startTime": "ISO-8601",
-  "endTime": "ISO-8601",
-  "figmaFile": "file-name",
-  "task": "Brief description of the session's goal",
-  "events": [
-    {
-      "timestamp": "ISO-8601",
-      "type": "tool_call",
-      "toolName": "create",
-      "params": { "type": "FRAME", "name": "Header", "parentId": "123:456" },
-      "durationMs": 1234
-    },
-    {
-      "timestamp": "ISO-8601",
-      "type": "tool_result",
-      "toolName": "create",
-      "result": { "success": true, "nodeId": "789:012" },
-      "durationMs": 0
-    },
-    {
-      "timestamp": "ISO-8601",
-      "type": "error",
-      "toolName": "apply",
-      "error": "Cannot call with documentAccess: dynamic-page",
-      "params": { "nodeId": "789:012" }
-    }
-  ]
-}
-```
-
-Fields: `type` is one of `tool_call`, `tool_result`, `user`, `assistant`, `error`. `toolName` uses the MCP tool name (e.g., `create`, `apply`, `get`, `find`, `join_channel`). `durationMs` is wall-clock time from call to response.
+5. **For HTML transcripts** (fallback if no JSON available and `extract-sessions` cannot run):
+   - Read page by page (each HTML file is one page).
+   - Extract tool call blocks using pattern matching: look for tool names, parameters, results, and error messages.
 
 ---
 
@@ -76,9 +82,9 @@ Calculate these standard metrics from the extracted events:
 ### Session Overview
 - **Duration**: end time - start time
 - **Total events**: count of all events
-- **Total tool calls**: count of `tool_call` events
-- **Total errors**: count of `error` events or tool results with error status
-- **Reconnections**: count of `join_channel` calls that were re-joins (not initial join)
+- **Total tool calls**: use `metadata.toolCallCount` or count `tool_use` content blocks
+- **Total errors**: count `tool_result` blocks where `is_error: true`
+- **Reconnections**: count `tool_use` blocks where `name` is `join_channel` (subtract 1 for initial join)
 - **Context overflows**: detect by looking for continuation summaries or session restart markers
 - **Phases completed**: identify distinct work phases from the transcript
 
