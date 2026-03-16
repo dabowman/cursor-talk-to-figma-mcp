@@ -36,6 +36,13 @@ const variableFieldEnum = z.enum([
   "maxHeight",
   "visible",
   "characters",
+  "fontSize",
+  "fontFamily",
+  "fontStyle",
+  "lineHeight",
+  "letterSpacing",
+  "paragraphSpacing",
+  "paragraphIndent",
 ]);
 
 // Recursive node operation schema
@@ -80,7 +87,7 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
       .record(variableFieldEnum, z.string())
       .optional()
       .describe(
-        "Map of field names to variable IDs. Binds design tokens to node properties. Fields: fill, stroke, cornerRadius, padding*, itemSpacing, width, height, opacity, visible, characters, etc.",
+        "Map of field names to variable IDs. Binds design tokens to node properties. Fields: fill, stroke, cornerRadius, padding*, itemSpacing, width, height, opacity, visible, characters, fontSize, fontFamily, fontStyle, lineHeight, letterSpacing, paragraphSpacing, paragraphIndent.",
       ),
 
     // Component operations (INSTANCE nodes only)

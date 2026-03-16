@@ -895,4 +895,11 @@ export var FIELD_MAP = {
   maxHeight: "maxHeight",
   visible: "visible",
   characters: "characters",
+  fontSize: "fontSize",
+  fontFamily: "fontFamily",
+  fontStyle: "fontStyle",
+  lineHeight: "lineHeight",
+  letterSpacing: "letterSpacing",
+  paragraphSpacing: "paragraphSpacing",
+  paragraphIndent: "paragraphIndent",
 };
