@@ -54,17 +54,8 @@ export async function create(params) {
 
     if (nodeType === "TEXT") {
       node = figma.createText();
-      try {
-        await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
-      } catch (_e) {
-        await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-      }
-      if (spec.text !== undefined) {
-        node.characters = String(spec.text);
-      }
-      if (spec.fontSize !== undefined) {
-        node.fontSize = toNumber(spec.fontSize, 14);
-      }
+      // Determine the target font style: fontWeight mapping takes precedence if provided
+      let targetStyle = fontStyle;
       if (spec.fontWeight !== undefined) {
         const weightMap = {
           100: "Thin",
@@ -78,13 +69,31 @@ export async function create(params) {
           900: "Black",
         };
         const w = toNumber(spec.fontWeight, 400);
-        const styleName = weightMap[w] || "Regular";
-        try {
-          await figma.loadFontAsync({ family: fontFamily, style: styleName });
-          node.fontName = { family: fontFamily, style: styleName };
-        } catch (_e2) {
-          // Keep default font if weight style not available
+        targetStyle = weightMap[w] || "Regular";
+      }
+      // Load and assign font BEFORE setting characters
+      try {
+        await figma.loadFontAsync({ family: fontFamily, style: targetStyle });
+        node.fontName = { family: fontFamily, style: targetStyle };
+      } catch (_e) {
+        // Try the original fontStyle if weight mapping failed
+        if (targetStyle !== fontStyle) {
+          try {
+            await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+            node.fontName = { family: fontFamily, style: fontStyle };
+          } catch (_e2) {
+            // Fall back to Inter Regular
+            await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+          }
+        } else {
+          await figma.loadFontAsync({ family: "Inter", style: "Regular" });
         }
+      }
+      if (spec.text !== undefined) {
+        node.characters = String(spec.text);
+      }
+      if (spec.fontSize !== undefined) {
+        node.fontSize = toNumber(spec.fontSize, 14);
       }
       if (spec.fontColor) {
         applyFillColor(node, spec.fontColor);
