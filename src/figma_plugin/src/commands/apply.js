@@ -132,6 +132,7 @@ async function processNode(op, styleCache) {
   if (op.strokeWeight !== undefined && "strokeWeight" in node) node.strokeWeight = toNumber(op.strokeWeight, 1);
   if (op.cornerRadius !== undefined && "cornerRadius" in node) node.cornerRadius = toNumber(op.cornerRadius, 0);
   if (op.opacity !== undefined && "opacity" in node) node.opacity = toNumber(op.opacity, 1);
+  if (op.clipsContent !== undefined && "clipsContent" in node) node.clipsContent = !!op.clipsContent;
 
   if (op.width !== undefined && op.height !== undefined && "resize" in node) {
     node.resize(toNumber(op.width, node.width), toNumber(op.height, node.height));

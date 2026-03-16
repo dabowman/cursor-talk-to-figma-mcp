@@ -56,6 +56,7 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
     strokeWeight: z.number().positive().optional().describe("Stroke weight"),
     cornerRadius: z.number().min(0).optional().describe("Corner radius"),
     opacity: z.number().min(0).max(1).optional().describe("Node opacity (0-1)"),
+    clipsContent: z.boolean().optional().describe("Clip content (frames only). true = overflow hidden, false = overflow visible."),
     width: z.number().positive().optional().describe("Width (resizes the node)"),
     height: z.number().positive().optional().describe("Height (resizes the node)"),
 
