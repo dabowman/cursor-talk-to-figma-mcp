@@ -127,7 +127,7 @@ These cause silent failures or wasted calls — learn them now:
 
 3. **No reparenting.** \`move_node\` only changes x/y position, not hierarchy. To move a node to a new parent: \`clone_and_modify(nodeId, parentId=newParent)\` + \`delete_node(originalId)\`.
 
-4. **Connection drops.** If 2+ commands time out in a row, the plugin↔relay WebSocket has likely dropped. Call \`join_channel()\` (no args) to re-discover and reconnect, then retry.
+4. **Connection drops.** If 2+ commands time out in a row on any tool, the plugin↔relay WebSocket has likely dropped. The server auto-invalidates the channel on timeout and re-discovers on the next command. If auto-recovery fails, call \`join_channel()\` (no args) to re-discover manually.
 
 5. **Stop after 2 identical errors.** If the same tool call fails twice with the same error, diagnose the root cause (wrong node ID, lost connection, type mismatch) instead of retrying.
 

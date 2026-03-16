@@ -106,8 +106,8 @@ Variable bindings and text style assignments propagate from a COMPONENT to all i
 ### Reparenting nodes
 No `reparent_node` tool exists — `move_node` only changes x/y, not hierarchy. To move a node to a new parent: `clone_and_modify(nodeId, parentId=newParent)` + delete the original. Clones preserve all instance overrides.
 
-### Silent connection drops
-If commands time out consistently, the plugin connection has likely dropped. Closing/reopening the plugin in Figma creates a NEW channel (named after the file). Recovery: call `join_channel` (auto-discovers the new channel) then retry. The relay stays running; it's the plugin↔relay WebSocket that breaks.
+### Connection drops and channel recovery
+If a command times out, the MCP server automatically invalidates the current channel so the next command triggers auto-join and re-discovers available channels. The plugin reuses the same channel name on reconnect (only increments to `-2` if another plugin genuinely occupies it). `join_channel` validates channel names against the relay before joining — if the requested channel doesn't exist, it returns the list of available channels. Manual `join_channel` is rarely needed; auto-recovery handles most cases.
 
 ### MCP tool discovery after code changes
 When new tools are added to the MCP server source, they won't appear until the MCP connection is restarted (via `/mcp` in Claude Code). After restart, tools need re-discovery via `ToolSearch`. The channel is re-joined automatically on the first tool call.
@@ -145,4 +145,4 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 - Use `get_design_system` to discover styles and variables before applying styles/tokens
 - The plugin and relay must both be running before any tool calls succeed
 - After 2 consecutive identical errors on the same tool, stop retrying and diagnose the root cause (wrong node ID, lost connection, or type mismatch)
-- After 2 timeouts in a row, assume the WebSocket connection is lost — call `join_channel` to re-establish before retrying
+- After 2 timeouts in a row on any tool, assume the WebSocket connection is lost. The MCP server auto-invalidates the channel on timeout and re-discovers on the next command, but if auto-recovery fails, call `join_channel` explicitly

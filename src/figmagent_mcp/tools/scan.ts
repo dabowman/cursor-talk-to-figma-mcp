@@ -291,7 +291,7 @@ server.tool(
 // Join Channel Tool
 server.tool(
   "join_channel",
-  "Join a channel to communicate with Figma. If no channel name is provided, auto-discovers active channels from the relay and joins if exactly one is found. You usually don't need to call this — the server auto-joins on first command. Call this explicitly when: (1) commands are timing out (connection may have dropped — re-joining reconnects), (2) you need to switch between multiple open Figma files.",
+  "Join a channel to communicate with Figma. If no channel name is provided, auto-discovers active channels from the relay and joins if exactly one is found. You usually don't need to call this — the server auto-joins on first command and auto-recovers on timeout. Call this explicitly when: (1) auto-recovery fails after repeated timeouts, (2) you need to switch between multiple open Figma files. If a specific channel name is provided, it is validated against the relay — nonexistent channels return the list of available options.",
   {
     channel: z.string().describe("The name of the channel to join").default(""),
   },
@@ -341,6 +341,27 @@ server.tool(
             ],
           };
         }
+      }
+
+      // Validate that the requested channel actually exists on the relay
+      try {
+        const available = await discoverChannels();
+        const availableNames = Object.keys(available);
+        if (availableNames.length > 0 && !availableNames.includes(channel)) {
+          const listing = availableNames
+            .map((name) => `  - ${name} (${available[name].clientCount} client(s))`)
+            .join("\n");
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Channel "${channel}" does not exist on the relay. Available channels:\n${listing}`,
+              },
+            ],
+          };
+        }
+      } catch (_) {
+        // Relay unreachable — try joining anyway, the relay's join handler will create it
       }
 
       await joinChannel(channel);

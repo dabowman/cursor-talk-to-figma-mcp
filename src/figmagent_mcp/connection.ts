@@ -225,6 +225,12 @@ export function sendCommandToFigma(
           if (pendingRequests.has(id)) {
             pendingRequests.delete(id);
             logger.error(`Request ${id} to Figma timed out after ${timeoutMs / 1000} seconds`);
+            // Invalidate the current channel so the next command
+            // triggers auto-join and re-discovers available channels.
+            if (currentChannel) {
+              logger.info(`Invalidating stale channel "${currentChannel}" after timeout`);
+              currentChannel = null;
+            }
             reject(new Error("Request to Figma timed out"));
           }
         }, timeoutMs);

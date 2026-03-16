@@ -381,14 +381,24 @@
       }
 
       // Return a channel name that is not already active on the relay.
-      // Appends -2, -3, … when the base slug is taken.
+      // Appends -2, -3, … only when the base slug is occupied by a
+      // DIFFERENT Figma file (i.e. has clients other than ourselves).
       async function getUniqueChannelName(baseSlug, port) {
         try {
           const resp = await fetch(`http://localhost:${port}/channels`);
           if (resp.ok) {
             const active = await resp.json();
             const names = Object.keys(active);
+            // If the base slug isn't active, use it directly
             if (!names.includes(baseSlug)) return baseSlug;
+            // If the base slug exists but has 0 clients (stale entry
+            // still being cleaned up), claim it — our join will take it.
+            if (active[baseSlug] && active[baseSlug].clientCount === 0) return baseSlug;
+            // Only increment if another client genuinely holds the name.
+            // A channel with 1 client that is the MCP server (not another
+            // plugin) is fine — we'll join it and become the 2nd client.
+            // Channels with 2+ clients already have a plugin, so avoid.
+            if (active[baseSlug] && active[baseSlug].clientCount <= 1) return baseSlug;
             let n = 2;
             while (names.includes(`${baseSlug}-${n}`)) n++;
             return `${baseSlug}-${n}`;

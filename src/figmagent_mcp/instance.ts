@@ -20,7 +20,7 @@ const instructions = `Figmagent bridges AI agents with Figma via a WebSocket rel
 - **No reparenting.** move_node only changes x/y. To reparent: clone_and_modify(nodeId, parentId=newParent) + delete_node(original).
 - **Colors are RGBA 0-1** (not 0-255). Example: { r: 0.2, g: 0.4, b: 1.0 }
 - **Batch over singles.** Use apply() with multiple nodes, set_multiple_text_contents, delete_multiple_nodes.
-- **Connection drops.** If 2+ commands time out, call join_channel() to reconnect, then retry.
+- **Connection drops.** If 2+ commands time out, the server auto-recovers by re-discovering channels. If that fails, call join_channel() manually.
 - **Stop after 2 identical errors.** Diagnose the root cause instead of retrying.
 
 ## Design System
