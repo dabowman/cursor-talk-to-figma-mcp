@@ -127,7 +127,7 @@ These cause silent failures or wasted calls — learn them now:
 
 3. **No reparenting.** \`move_node\` only changes x/y position, not hierarchy. To move a node to a new parent: \`clone_and_modify(nodeId, parentId=newParent)\` + \`delete_node(originalId)\`.
 
-4. **Connection drops.** If 2+ commands time out in a row, the plugin↔relay WebSocket has likely dropped. Call \`join_channel()\` (no args) to re-discover and reconnect, then retry.
+4. **Connection drops.** If 2+ commands time out on ANY tool calls (not just identical ones), the plugin↔relay WebSocket has likely dropped. Call \`join_channel()\` (no args) to re-discover and reconnect, then retry.
 
 5. **Stop after 2 identical errors.** If the same tool call fails twice with the same error, diagnose the root cause (wrong node ID, lost connection, type mismatch) instead of retrying.
 
@@ -425,6 +425,8 @@ Swap to a different variant: \`apply({ nodes: [{ nodeId: "instance-id", swapVari
 
 Surface a nested instance's properties at the parent component level:
 \`apply({ nodes: [{ nodeId: "nested-instance-inside-component", isExposedInstance: true }] })\`
+
+**Important:** \`isExposedInstance\` does NOT create a picker/dropdown for swapping — it surfaces the nested instance's own properties (like text overrides) on the parent. To create a dropdown that lets users pick between components, use \`component_properties\` with type \`INSTANCE_SWAP\` instead.
 
 ## Key Rules
 
