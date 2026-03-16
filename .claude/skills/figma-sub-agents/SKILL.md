@@ -101,7 +101,7 @@ The agent definition lives at `.claude/agents/figma-discovery.md`. It has:
 - A read-only tool set (no create/modify tools)
 - A system prompt with its full workflow and output schema
 
-**Tools available to the agent:** `join_channel`, `get`, `scan_text_nodes`, `get_local_variables`, `get_styles`, `get_local_components` (plus `ToolSearch` to load them). Note: `get_main_component` is no longer needed — `get` includes component metadata in `defs.components`.
+**Tools available to the agent:** `join_channel`, `get`, `find`, `scan_text_nodes`, `get_local_variables`, `get_styles`, `get_local_components`, `get_design_system`. All tools are declared in the agent definition and loaded automatically — no ToolSearch needed. Note: `get_main_component` is no longer needed — `get` includes component metadata in `defs.components`.
 
 ### Spawning the Agent
 

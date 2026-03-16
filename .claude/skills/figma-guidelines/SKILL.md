@@ -21,6 +21,31 @@ For deeper coverage on any topic, read the corresponding reference file in `refe
 
 ---
 
+## Figmagent Tool Reference
+
+All tools are available via the `mcp__Figmagent__` prefix. Call them directly — no ToolSearch needed.
+
+| Domain | Tools |
+|--------|-------|
+| **Read & Navigate** | `get_document_info`, `get_selection`, `get`, `find`, `scan_text_nodes`, `scan_nodes_by_types`, `export_node_as_image` |
+| **Create** | `create` |
+| **Modify** | `apply`, `move_node`, `resize_node`, `rename_node`, `delete_node`, `delete_multiple_nodes`, `clone_node`, `clone_and_modify`, `reorder_children` |
+| **Text** | `set_text_content`, `set_multiple_text_contents` |
+| **Components** | `get_local_components`, `combine_as_variants`, `component_properties`, `get_instance_overrides`, `set_instance_overrides` |
+| **Design System** | `get_design_system`, `create_variables`, `update_variables`, `create_styles`, `update_styles` |
+| **Libraries** | `get_library_components`, `search_library_components`, `import_library_component`, `get_component_variants`, `get_library_variables` |
+| **Annotations** | `get_annotations`, `set_annotation`, `set_multiple_annotations` |
+| **Comments** | `get_comments`, `post_comment`, `delete_comment` |
+| **Lint** | `lint_design` |
+| **Connection** | `join_channel`, `get_reactions`, `set_default_connector`, `create_connections`, `set_focus`, `set_selections` |
+
+**Common workflows:**
+- Orient: `get_document_info` → `get_selection` → `get(nodeId, detail="structure", depth=2)`
+- Search & modify: `find(criteria)` → `get(nodeId)` → `apply(nodeId, properties)`
+- Design tokens: `get_design_system` → `apply(nodeId, variables={...})`
+
+---
+
 ## Container Selection: Frame vs Group vs Section
 
 **Use a Frame** for virtually everything — layouts, wrappers, components, anything that needs fills, auto layout, clip content, constraints, or effects. Frames have independent dimensions and children position relative to them.

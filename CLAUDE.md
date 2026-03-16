@@ -138,6 +138,7 @@ Uncomment the `hostname: "0.0.0.0"` line in `src/socket.ts` to allow connections
 ## Agent Notes
 
 - No need to call `join_channel` manually — the MCP server auto-joins when you issue the first Figma command. If multiple Figma files are open, the first command returns a list of file names; call `join_channel({ channel: "file-name" })` to pick one.
+- **No ToolSearch needed.** The MCP server instructions enumerate all 47 available tools by domain. Sub-agents declare their tools in agent definitions. Call tools directly by name instead of discovering them at runtime.
 - Call `get_document_info` first to understand the design structure
 - Use `find` to search for nodes by criteria (component usage, variable bindings, style usage, text content, name, type) — returns grouped matches with ancestry paths
 - Use `get(nodeId, detail="structure", depth=2)` on a target node to orient before making modifications
