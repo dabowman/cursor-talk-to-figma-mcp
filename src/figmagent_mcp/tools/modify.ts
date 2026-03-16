@@ -144,7 +144,7 @@ server.tool(
 // Delete Node Tool
 server.tool(
   "delete_node",
-  "Delete a node from Figma",
+  "Delete a node from Figma. Do NOT delete TEXT nodes to change font properties — use apply with fontFamily/fontWeight/fontSize instead.",
   {
     nodeId: z.string().describe("The ID of the node to delete"),
   },
