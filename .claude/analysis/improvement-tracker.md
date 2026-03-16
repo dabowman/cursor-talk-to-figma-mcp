@@ -1,7 +1,7 @@
 # Figmagent Improvement Tracker
 
 Last updated: 2026-03-16
-Sessions analyzed: 16
+Sessions analyzed: 17
 
 ## Active Issues
 
@@ -67,7 +67,7 @@ Sessions analyzed: 16
 - **Priority**: P1
 - **Category**: infrastructure
 - **First seen**: Session 1 (2026-03-05)
-- **Sessions affected**: 1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 15, 16
+- **Sessions affected**: 1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 15, 16, 17
 - **Estimated savings**: ~20-33 calls/session (long sessions), ~2-8 calls/session (short sessions)
 - **Description**: Agent rediscovers same tools repeatedly. 33 calls in session 1 (10.7%), 28 in session 2 (7.2%), 35 in session 5 (13.5%), 8 in session 4 (14.3%), 3 in session 6 (4.4%), 2 in session 7 (8.3%), 7 in session 9 (43.8% — worst ratio, dominated a short exploration session). Worst after reconnections or in short sessions where overhead ratio is high.
 - **Proposed fix**: Pre-load tool schemas at session start; auto-restore after reconnections; add complete tool reference to skill file.
@@ -108,8 +108,8 @@ Sessions analyzed: 16
 - **Priority**: P2
 - **Category**: infrastructure
 - **First seen**: Session 1 (2026-03-05)
-- **Sessions affected**: 1, 2, 5, 13
-- **Description**: 8 reconnections in session 1 consuming ~40+ overhead calls. Session 5 had ~8 reconnections (14 `join_channel` calls) over 139 minutes. Session 13 had 3 reconnections (model switch + wrong channel guess + multi-channel). Short sessions (4, 6, 7) had zero.
+- **Sessions affected**: 1, 2, 5, 13, 17
+- **Description**: 8 reconnections in session 1 consuming ~40+ overhead calls. Session 5 had ~8 reconnections (14 `join_channel` calls) over 139 minutes. Session 13 had 3 reconnections (model switch + wrong channel guess + multi-channel). Session 17 had 2 reconnections after ~90 minutes, preceded by 3 consecutive timeouts. Short sessions (4, 6, 7) had zero.
 - **Current status**: Auto-join improved for short sessions. Long sessions (>1hr) still experience WebSocket drops requiring manual `join_channel`. Each reconnection triggers ToolSearch re-discovery overhead.
 - **Verified in**: Sessions 4, 6, 7 — zero reconnections in short sessions.
 
@@ -277,7 +277,7 @@ Sessions analyzed: 16
 - **Priority**: P1
 - **Category**: agent-behavior
 - **First seen**: Session 12 (2026-03-16)
-- **Sessions affected**: 12
+- **Sessions affected**: 12, 17
 - **Estimated savings**: ~40 calls per wrong-approach session
 - **Description**: Agent applied `set_exposed_instance` to 42 nodes before user corrected the approach. Should have applied to 1 node, confirmed with user, then batch.
 - **Proposed fix**: Add to agent workflow: "For operations on 5+ nodes, apply to 1 first, show user, confirm, then batch."
@@ -330,6 +330,57 @@ Sessions analyzed: 16
 - **Sessions affected**: 13
 - **Description**: `getMainComponent` called synchronously instead of `getMainComponentAsync` in FSGN traversal, causing 2 failures on instance nodes.
 - **Fix pattern**: sync-to-async
+
+### [BUG-007] `create` tool: TEXT nodes fail with non-default fonts — [#30](https://github.com/dabowman/Figmagent/issues/30)
+- **Status**: implemented (`bda7a09`)
+- **Priority**: P1
+- **Category**: plugin-bug
+- **First seen**: Session 17 (2026-03-16)
+- **Sessions affected**: 17
+- **Estimated savings**: ~2 calls per TEXT node with custom font (20-40 calls in component-heavy sessions)
+- **Description**: `create` with TEXT nodes and non-default fonts (e.g. "Public Sans") fails or silently falls back to Inter Regular. Agent forced into 3-step workaround: create empty text → apply font → set content. Root cause: `loadFontAsync` catch block silently falls back (line 60), weight style name mismatches (e.g. "Semi Bold" vs "SemiBold") are swallowed (line 85), and success is reported even when font wasn't loaded.
+- **Fix pattern**: Align `create`'s font handling with `apply`'s (which works correctly). Try style name variations, report warnings/errors instead of silent fallback.
+- **Related**: [BUG-004] (same class, different tool), [AGENT-005] (workaround pattern)
+
+### [TOOL-014] `get_design_system` needs filtering params — [#28](https://github.com/dabowman/Figmagent/issues/28)
+- **Status**: identified
+- **Priority**: P1
+- **Category**: missing-tool
+- **First seen**: Session 17 (2026-03-16)
+- **Sessions affected**: 17
+- **Estimated savings**: ~4 calls per large-design-system session
+- **Description**: With 540+ variables and 18 styles, `get_design_system` output was 95-110K chars — exceeding both the 30K default budget and MCP infrastructure limits. Agent needed 9 calls (3 timeouts, 1 rejection, 2 truncated, 3 succeeded) to get useful data, then fell back to Bash parsing of the dumped file.
+- **Proposed fix**: Add filtering parameters: `collection` (filter by collection name), `type` ("variables" or "styles" only), `namePattern` (regex filter on variable/style names). This lets agents query subsets instead of the entire design system.
+
+### [AGENT-013] Cross-tool timeout tracking for reconnection — [#29](https://github.com/dabowman/Figmagent/issues/29)
+- **Status**: identified
+- **Priority**: P2
+- **Category**: agent-behavior
+- **First seen**: Session 17 (2026-03-16)
+- **Sessions affected**: 17
+- **Estimated savings**: ~4 calls per timeout cascade
+- **Description**: Three consecutive timeouts across `get_design_system` and `find` (calls #70-73). The interleaved `find` call reset the agent's "2 consecutive identical errors" counter, delaying reconnection. CLAUDE.md says "2 timeouts in a row" but agent interpreted "in a row on the same tool."
+- **Proposed fix**: Clarify in CLAUDE.md: "After 2 timeouts in a row on ANY tool (not just the same tool), assume the WebSocket connection is lost."
+
+### [AGENT-012] Read pipeline output, not source tokens — [#25](https://github.com/dabowman/Figmagent/issues/25)
+- **Status**: identified
+- **Priority**: P1
+- **Category**: agent-behavior
+- **First seen**: Session 17 (2026-03-16)
+- **Sessions affected**: 17
+- **Estimated savings**: ~23 calls per occurrence (delete-recreate cycle)
+- **Description**: Agent created ~200 variables with wrong naming (inferred from base tokens `tokens/base/` instead of pipeline output `tokens/figma/`). User had to intervene to redirect. All 200 variables deleted and recreated correctly. 14 Figma calls + 9 Bash scripts wasted.
+- **Proposed fix**: Add to agent workflow: "When a token pipeline exists, always read the pipeline's Figma-specific output files before creating variables. Don't infer naming or structure from base/source tokens."
+
+### [INFRA-003] Token-to-Figma conversion utility — [#26](https://github.com/dabowman/Figmagent/issues/26)
+- **Status**: identified
+- **Priority**: P1
+- **Category**: infrastructure
+- **First seen**: Session 17 (2026-03-16)
+- **Sessions affected**: 17
+- **Estimated savings**: ~18 Bash calls per token-import session
+- **Description**: Agent wrote 22 Bash/Node scripts for hex→RGBA conversion, DTCG JSON parsing, alias resolution, and batch chunking. Many were incremental iterations on the same logic. No reusable utility exists.
+- **Proposed fix**: Create a `prepare-figma-variables` script or MCP tool that reads DTCG-format JSON files and outputs `create_variables` payloads with automatic hex→RGBA conversion, alias resolution via ID map, and batching (25 vars per batch).
 
 ## Resolved Issues
 
@@ -398,6 +449,7 @@ Sessions analyzed: 16
 | 14 | 2026-03-16 | 17 | 2 | ~18% | 0 (0%) | 0 | 1 | 0 |
 | 15 | 2026-03-16 | 137 | 1 | ~25% | 5 (3.6%) | ~38 | 3 | 0 |
 | 16 | 2026-03-16 | 77 | 5 | ~23% | 9 (11.7%) | ~15 | 0 | 0 |
+| 17 | 2026-03-16 | 216* | 10 | ~35% | 14 (14.1%) | ~540 vars + 18 styles + 1 component | 4 | 0 |
 
 ## Issue Categories
 

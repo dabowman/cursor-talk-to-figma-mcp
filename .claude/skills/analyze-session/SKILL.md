@@ -36,7 +36,7 @@ Sessions with `sessionType: "figma"` (at least 1 `mcp__Figmagent__*` tool call) 
 
 ### Picking the session to analyze
 
-1. **First, ensure all sessions are extracted**: Run `bun extract-sessions --compact --no-thinking` to extract any new/updated sessions (mtime-based skipping is built in).
+1. **First, ensure all sessions are extracted**: Run `bun extract-sessions --compact --no-thinking` to extract any new/updated sessions (mtime-based skipping is built in). For sessions from other projects, use `--file <path>` to point at an external JSONL file directly (e.g. `bun extract-sessions --file ~/.claude/projects/-Users-foo-Github-other-project/<session-id>.jsonl --compact --no-thinking --include-agents`).
 
 2. **Then, refresh the manifest**: Run the manifest update script (see below) to discover new sessions and check for stale analyses.
 
@@ -128,7 +128,7 @@ Update the manifest entry for the analyzed session:
 
 This can be done by reading the manifest, updating the entry, and writing it back.
 
-5. **If no extracted JSON exists yet**, run `bun extract-sessions --compact --no-thinking` to extract all sessions from the Claude Code session store. This produces structured JSON files in `.claude/sessions-json/`.
+5. **If no extracted JSON exists yet**, run `bun extract-sessions --compact --no-thinking` to extract all sessions from the Claude Code session store. This produces structured JSON files in `.claude/sessions-json/`. Use `--file <path>` for sessions from other projects.
 
 3. **Reading the JSON transcript** (produced by `scripts/extract-sessions.ts`):
    - Read the file. If >500 lines, read in 500-line chunks.

@@ -11,6 +11,7 @@
  *
  * Options:
  *   --session <id>       Extract a single session by ID
+ *   --file <path>        Extract a session from an external JSONL file
  *   --latest [n]         Extract only the n most recent sessions
  *   --out <dir>          Output directory (default: .claude/sessions-json)
  *   --include-agents     Include sub-agent sessions
@@ -22,7 +23,7 @@
  */
 
 import { readdir, readFile, mkdir, writeFile, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join, basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 // Auto-detect the session directory based on CWD
@@ -59,6 +60,7 @@ const { values: args } = parseArgs({
 	args: processedArgv,
 	options: {
 		session: { type: "string" },
+		file: { type: "string" },
 		latest: { type: "string" },
 		all: { type: "boolean", default: false }, // kept for backward compat, same as default
 		out: { type: "string" },
@@ -367,6 +369,7 @@ async function extractSession(
 	sessionId: string,
 	options: { compact: boolean; noThinking: boolean; rawMode: boolean },
 	includeAgents: boolean,
+	sessionParentDir?: string,
 ): Promise<ExtractedSession> {
 	const raw = await readFile(sessionFile, "utf-8");
 
@@ -410,7 +413,8 @@ async function extractSession(
 
 	// Sub-agents — check both <sessionId>/*.jsonl and <sessionId>/subagents/*.jsonl
 	if (includeAgents) {
-		const sessionDir = join(SESSION_DIR, sessionId);
+		const parentDir = sessionParentDir || SESSION_DIR;
+		const sessionDir = join(parentDir, sessionId);
 		const agentJsonls: { id: string; path: string }[] = [];
 
 		try {
@@ -468,6 +472,38 @@ async function main() {
 		noThinking: args["no-thinking"] || false,
 		rawMode: args.raw || false,
 	};
+
+	// --file mode: extract a single external JSONL file directly
+	if (args.file) {
+		const filePath = resolve(args.file);
+		const fileStat = await stat(filePath);
+		const sessionId = basename(filePath, ".jsonl");
+		const parentDir = dirname(filePath);
+
+		const outDir = args.out || DEFAULT_OUT;
+		await mkdir(outDir, { recursive: true });
+		const includeAgents = args["include-agents"] || false;
+
+		const session = await extractSession(
+			filePath,
+			sessionId,
+			options,
+			includeAgents,
+			parentDir,
+		);
+		const outFile = join(outDir, `${sessionId}.json`);
+		await writeFile(outFile, JSON.stringify(session, null, 2));
+		const toolCount = session.metadata.toolCallCount;
+		const msgCount = session.metadata.messageCount;
+		const agents = session.subAgents
+			? ` + ${Object.keys(session.subAgents).length} sub-agents`
+			: "";
+		console.log(
+			`  ${sessionId} → ${msgCount} messages, ${toolCount} tool calls${agents}`,
+		);
+		console.log(`\n1 extracted. Output: ${outFile}`);
+		return;
+	}
 
 	const sessions = await discoverSessions();
 
