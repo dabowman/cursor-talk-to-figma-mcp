@@ -11,12 +11,124 @@ Analyze a Figma MCP test session transcript and produce a structured efficiency/
 
 ## Phase 1: Locate and Ingest Transcript
 
-1. If a file path argument was provided, use that. Otherwise, find the most recent transcript:
-   - **Primary**: Check `.claude/sessions-json/` for `.json` files (produced by `bun extract-sessions`)
-   - **Fallback**: Check `.claude/transcripts/` for HTML files (produced by `bun transcribe`)
-   - Sort by modification time, pick most recent.
+### Session manifest
 
-2. **If no extracted JSON exists yet**, run `bun extract-sessions --latest --compact --no-thinking` to generate one from the most recent Claude Code session. This produces a structured JSON file in `.claude/sessions-json/`.
+A manifest at `.claude/analysis/sessions.json` tracks all sessions and their analysis status:
+
+```json
+{
+  "sessions": {
+    "<session-id>": {
+      "sessionType": "figma" | "dev" | "empty",
+      "skip": true,              // present on dev/empty sessions
+      "toolCalls": 56,
+      "figmaToolCalls": 48,
+      "durationMinutes": 20,
+      "sourceModified": 1710000000.00,  // mtime of source JSON
+      "analysis": "figma-mcp-session4-analysis.md",  // only if analyzed
+      "analyzedAt": 1710000000.00       // mtime of analysis file
+    }
+  }
+}
+```
+
+Sessions with `sessionType: "figma"` (at least 1 `mcp__Figmagent__*` tool call) are candidates for analysis. Sessions with `sessionType: "dev"` or `"empty"` are skipped.
+
+### Picking the session to analyze
+
+1. **First, ensure all sessions are extracted**: Run `bun extract-sessions --compact --no-thinking` to extract any new/updated sessions (mtime-based skipping is built in).
+
+2. **Then, refresh the manifest**: Run the manifest update script (see below) to discover new sessions and check for stale analyses.
+
+3. **Pick the target session**:
+   - If a file path argument was provided, use that specific session.
+   - Otherwise, read `.claude/analysis/sessions.json` and find Figma sessions that need analysis:
+     - `sessionType: "figma"` AND no `analysis` field → **new, needs analysis**
+     - `sessionType: "figma"` AND `sourceModified > analyzedAt` → **updated, needs re-analysis**
+   - Pick the oldest unanalyzed session first (analyze in chronological order).
+   - If all Figma sessions are analyzed and up-to-date, report "All sessions analyzed" and stop.
+
+4. **Analyze one session at a time** to keep context manageable. After completing one analysis, the user can run the skill again to analyze the next.
+
+### Manifest update script
+
+Run this Python snippet via Bash to refresh the manifest before analysis:
+
+```bash
+python3 -c "
+import json, os, glob
+
+sessions_dir = '.claude/sessions-json'
+analysis_dir = '.claude/analysis'
+manifest_path = f'{analysis_dir}/sessions.json'
+
+# Load existing manifest or start fresh
+try:
+    with open(manifest_path) as fh:
+        manifest = json.load(fh)
+except (FileNotFoundError, json.JSONDecodeError):
+    manifest = {'sessions': {}}
+
+# Scan all session JSONs
+for f in sorted(glob.glob(f'{sessions_dir}/*.json')):
+    with open(f) as fh:
+        data = json.load(fh)
+    sid = data['sessionId']
+    m = data['metadata']
+    tools = m.get('uniqueTools', [])
+    figma_tools = [t for t in tools if 'Figmagent' in t]
+    tc = m['toolCallCount']
+    source_mtime = round(os.path.getmtime(f), 2)
+
+    # Preserve existing analysis mapping if present
+    existing = manifest['sessions'].get(sid, {})
+
+    entry = {
+        'toolCalls': tc,
+        'figmaToolCalls': len(figma_tools),
+        'durationMinutes': round(m['duration']['minutes']),
+        'sourceModified': source_mtime,
+    }
+
+    if tc == 0:
+        entry['sessionType'] = 'empty'
+        entry['skip'] = True
+    elif len(figma_tools) > 0:
+        entry['sessionType'] = 'figma'
+        if 'analysis' in existing:
+            entry['analysis'] = existing['analysis']
+            # Check if analysis file still exists and get its mtime
+            af = f'{analysis_dir}/{existing[\"analysis\"]}'
+            if os.path.exists(af):
+                entry['analyzedAt'] = round(os.path.getmtime(af), 2)
+    else:
+        entry['sessionType'] = 'dev'
+        entry['skip'] = True
+
+    manifest['sessions'][sid] = entry
+
+with open(manifest_path, 'w') as fh:
+    json.dump(manifest, fh, indent=2)
+
+# Report
+figma = {k:v for k,v in manifest['sessions'].items() if v.get('sessionType') == 'figma'}
+needs = {k:v for k,v in figma.items() if 'analysis' not in v or v.get('sourceModified',0) > v.get('analyzedAt',0)}
+print(f'Figma sessions: {len(figma)}, needs analysis: {len(needs)}')
+for sid, v in sorted(needs.items(), key=lambda x: x[1]['sourceModified']):
+    status = 'new' if 'analysis' not in v else 'updated'
+    print(f'  {sid}  {v[\"toolCalls\"]:>4} calls  {v[\"figmaToolCalls\"]:>2} figma  ({status})')
+"
+```
+
+### After completing analysis
+
+Update the manifest entry for the analyzed session:
+- Set `analysis` to the filename (e.g. `figma-mcp-session10-analysis.md`)
+- Set `analyzedAt` to the current time
+
+This can be done by reading the manifest, updating the entry, and writing it back.
+
+5. **If no extracted JSON exists yet**, run `bun extract-sessions --compact --no-thinking` to extract all sessions from the Claude Code session store. This produces structured JSON files in `.claude/sessions-json/`.
 
 3. **Reading the JSON transcript** (produced by `scripts/extract-sessions.ts`):
    - Read the file. If >500 lines, read in 500-line chunks.
@@ -243,6 +355,8 @@ Update `.claude/analysis/improvement-tracker.md`:
 4. **Update Metrics Over Time table**: Add a row for this session.
 
 5. **Update "Last updated" date and "Sessions analyzed" count**.
+
+6. **Update the session manifest** (`.claude/analysis/sessions.json`): Set the `analysis` field to the analysis filename and `analyzedAt` to the current time for the session just analyzed. This marks it as complete so the next `/analyze-session` invocation skips it.
 
 ---
 
