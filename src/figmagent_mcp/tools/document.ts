@@ -109,52 +109,62 @@ function buildFsgn(raw: any, params: any): string {
 // ─── Tools ───────────────────────────────────────────────────────────────────
 
 // Document Info Tool
-server.tool("get_document_info", "Get pages and top-level frames in the current Figma document. Call this first to orient yourself, then use get_selection() to find what the user is looking at, then get(nodeId) to read details.", {}, async () => {
-  try {
-    const result = await sendCommandToFigma("get_document_info");
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result),
-        },
-      ],
-    };
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error getting document info: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-    };
-  }
-});
+server.tool(
+  "get_document_info",
+  "Get pages and top-level frames in the current Figma document. Call this first to orient yourself, then use get_selection() to find what the user is looking at, then get(nodeId) to read details.",
+  {},
+  async () => {
+    try {
+      const result = await sendCommandToFigma("get_document_info");
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting document info: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
 
 // Selection Tool
-server.tool("get_selection", "Get the user's current selection in Figma. Returns selected node IDs and basic info. If empty, ask the user to select something. Use get(nodeId) on the result to read details.", {}, async () => {
-  try {
-    const result = await sendCommandToFigma("get_selection");
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result),
-        },
-      ],
-    };
-  } catch (error) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error getting selection: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
-    };
-  }
-});
+server.tool(
+  "get_selection",
+  "Get the user's current selection in Figma. Returns selected node IDs and basic info. If empty, ask the user to select something. Use get(nodeId) on the result to read details.",
+  {},
+  async () => {
+    try {
+      const result = await sendCommandToFigma("get_selection");
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting selection: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
 
 // Get Tool — read nodes and their subtrees
 server.tool(
@@ -241,9 +251,7 @@ Instances are leaf nodes by default — call get on the instance ID to expand it
 
       // Fetch all nodes in parallel, each via the plugin's get_node_tree command
       const results = await Promise.all(
-        ids.map((id) =>
-          sendCommandToFigma("get_node_tree", { ...params, nodeId: id, nodeIds: undefined }, 60000),
-        ),
+        ids.map((id) => sendCommandToFigma("get_node_tree", { ...params, nodeId: id, nodeIds: undefined }, 60000)),
       );
 
       // Build FSGN for each result
@@ -257,7 +265,7 @@ Instances are leaf nodes by default — call get on the instance ID to expand it
         toolName: "get",
         narrowingHints: [
           "  • Lower depth — try depth=1 or depth=2",
-          "  • Use detail=\"structure\" (~5 tokens/node)",
+          '  • Use detail="structure" (~5 tokens/node)',
           "  • Target a specific child node instead of the whole subtree",
           "  • Use find() to locate the nodes you need first",
         ],

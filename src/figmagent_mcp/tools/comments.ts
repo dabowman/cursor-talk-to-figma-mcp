@@ -170,7 +170,11 @@ Categories are only included in the response when annotations are found. To disc
       .array(z.string())
       .optional()
       .describe("Array of node IDs to batch-check for annotations (more efficient than repeated single calls)"),
-    includeCategories: z.boolean().optional().default(true).describe("Whether to include category information when annotations are found"),
+    includeCategories: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Whether to include category information when annotations are found"),
   },
   async ({ nodeId, nodeIds, includeCategories }: any) => {
     try {

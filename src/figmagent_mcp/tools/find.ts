@@ -26,10 +26,7 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
       .string()
       .optional()
       .describe('Node ID to search within, or "DOCUMENT" to search all pages (default: current page)'),
-    componentId: z
-      .array(z.string())
-      .optional()
-      .describe("Find instances of these component or component_set IDs"),
+    componentId: z.array(z.string()).optional().describe("Find instances of these component or component_set IDs"),
     variableId: z
       .array(z.string())
       .optional()
@@ -38,36 +35,20 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
       .array(z.string())
       .optional()
       .describe("Find nodes using these style IDs (fill, stroke, text, effect, or grid styles)"),
-    text: z
-      .string()
-      .optional()
-      .describe("Find TEXT nodes whose content matches this regex pattern"),
-    name: z
-      .string()
-      .optional()
-      .describe("Find nodes whose name matches this regex pattern"),
+    text: z.string().optional().describe("Find TEXT nodes whose content matches this regex pattern"),
+    name: z.string().optional().describe("Find nodes whose name matches this regex pattern"),
     type: z
       .array(z.string())
       .optional()
       .describe("Find nodes of these types (e.g. FRAME, TEXT, INSTANCE, COMPONENT, COMPONENT_SET)"),
-    annotation: z
-      .string()
-      .optional()
-      .describe("Find nodes whose annotation label matches this regex pattern"),
-    hasAnnotation: z
-      .boolean()
-      .optional()
-      .describe("Find all nodes that have any annotation (set to true)"),
+    annotation: z.string().optional().describe("Find nodes whose annotation label matches this regex pattern"),
+    hasAnnotation: z.boolean().optional().describe("Find all nodes that have any annotation (set to true)"),
     excludeDefinitions: z
       .boolean()
       .optional()
       .default(true)
       .describe("When searching by componentId, skip matches inside those component definitions (default: true)"),
-    maxResults: z
-      .number()
-      .optional()
-      .default(200)
-      .describe("Maximum number of matches to return (default: 200)"),
+    maxResults: z.number().optional().default(200).describe("Maximum number of matches to return (default: 200)"),
     maxOutputChars: z
       .number()
       .int()

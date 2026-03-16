@@ -18,7 +18,9 @@ const nodeSpecSchema: z.ZodType<any> = z.lazy(() =>
     type: z
       .enum(["FRAME", "TEXT", "RECTANGLE", "COMPONENT", "INSTANCE"])
       .optional()
-      .describe("Node type (default: FRAME). COMPONENT works like FRAME but creates a component. INSTANCE requires componentId or componentKey."),
+      .describe(
+        "Node type (default: FRAME). COMPONENT works like FRAME but creates a component. INSTANCE requires componentId or componentKey.",
+      ),
     name: z.string().optional().describe("Node name"),
     x: z.number().optional().describe("X position"),
     y: z.number().optional().describe("Y position"),
@@ -113,11 +115,15 @@ Use parentId to append the created node(s) inside an existing frame.
 Colors use RGBA 0-1 range (e.g. { r: 0.2, g: 0.4, b: 1.0 }), not 0-255.`,
   {
     parentId: z.string().optional().describe("Parent node ID to append the created node(s) to"),
-    node: nodeSpecSchema.optional().describe("Single node spec — a node or nested tree with children. Mutually exclusive with 'nodes'."),
+    node: nodeSpecSchema
+      .optional()
+      .describe("Single node spec — a node or nested tree with children. Mutually exclusive with 'nodes'."),
     nodes: z
       .array(nodeSpecSchema)
       .optional()
-      .describe("Array of node specs to create in parallel. Each spec is a root node (with optional children). Mutually exclusive with 'node'."),
+      .describe(
+        "Array of node specs to create in parallel. Each spec is a root node (with optional children). Mutually exclusive with 'node'.",
+      ),
   },
   async ({ parentId, node, nodes }: any) => {
     try {

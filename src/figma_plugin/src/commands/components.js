@@ -383,7 +383,12 @@ export async function componentProperties(params) {
         const refs = targetNode.componentPropertyReferences || {};
         refs[targetField] = op.propertyName;
         targetNode.componentPropertyReferences = refs;
-        results.push({ success: true, action: "bind", propertyName: op.propertyName, boundTo: { nodeId: op.targetNodeId, field: targetField } });
+        results.push({
+          success: true,
+          action: "bind",
+          propertyName: op.propertyName,
+          boundTo: { nodeId: op.targetNodeId, field: targetField },
+        });
       } else {
         throw new Error("Unknown action: " + op.action + ". Use add, edit, or delete, or bind.");
       }

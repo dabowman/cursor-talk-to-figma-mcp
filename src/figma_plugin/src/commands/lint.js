@@ -160,7 +160,7 @@ function collectNodes(node, path, depth, result) {
   }
 
   if ("children" in node) {
-    const parentPath = node.type === "PAGE" ? "" : (path ? path + " > " + node.name : node.name);
+    const parentPath = node.type === "PAGE" ? "" : path ? path + " > " + node.name : node.name;
     for (let i = 0; i < node.children.length; i++) {
       collectNodes(node.children[i], parentPath, node.type === "PAGE" ? 0 : depth + 1, result);
     }

@@ -128,19 +128,15 @@ Returns updated componentPropertyDefinitions after all operations.`,
           action: z.enum(["add", "edit", "delete", "bind"]).describe("Operation type"),
           // For add:
           name: z.string().optional().describe("Property name (for add)"),
-          type: z
-            .enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"])
-            .optional()
-            .describe("Property type (for add)"),
+          type: z.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT"]).optional().describe("Property type (for add)"),
           defaultValue: z
             .union([z.string(), z.boolean()])
             .optional()
-            .describe("Default value (for add/edit). Boolean for BOOLEAN, string for TEXT/VARIANT, node ID for INSTANCE_SWAP."),
+            .describe(
+              "Default value (for add/edit). Boolean for BOOLEAN, string for TEXT/VARIANT, node ID for INSTANCE_SWAP.",
+            ),
           // For edit/delete:
-          propertyName: z
-            .string()
-            .optional()
-            .describe("Full property name including #suffix (for edit/delete)"),
+          propertyName: z.string().optional().describe("Full property name including #suffix (for edit/delete)"),
           newName: z.string().optional().describe("New name for the property (for edit)"),
           targetNodeId: z
             .string()

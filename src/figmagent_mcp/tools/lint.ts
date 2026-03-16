@@ -29,7 +29,11 @@ Severity levels:
 - near_match: variable exists within threshold (deltaE < threshold for colors, within 10% for scalars). Review suggested.
 - no_match: no matching variable found. Manual action needed.`,
   {
-    nodeId: z.string().describe("Root node ID to scan. All visible descendants will be linted. Accepts PAGE node IDs (e.g. '0:1') to lint all top-level components on the page in one call."),
+    nodeId: z
+      .string()
+      .describe(
+        "Root node ID to scan. All visible descendants will be linted. Accepts PAGE node IDs (e.g. '0:1') to lint all top-level components on the page in one call.",
+      ),
     autoFix: z
       .boolean()
       .default(false)

@@ -181,13 +181,9 @@ async function autoJoinChannel(): Promise<void> {
     logger.info(`Auto-joined channel: ${names[0]}`);
   } else if (names.length > 1) {
     const listing = names.map((n) => `  • ${n}`).join("\n");
-    throw new Error(
-      `Multiple Figma files are open. Call join_channel with the file you want:\n${listing}`,
-    );
+    throw new Error(`Multiple Figma files are open. Call join_channel with the file you want:\n${listing}`);
   } else {
-    throw new Error(
-      "No active Figma channels found. Make sure the Figma plugin is open and connected.",
-    );
+    throw new Error("No active Figma channels found. Make sure the Figma plugin is open and connected.");
   }
 }
 
@@ -205,8 +201,7 @@ export function sendCommandToFigma(
 
   // For non-join commands with no channel, attempt auto-join first then send
   const requiresChannel = command !== "join";
-  const channelReady: Promise<void> =
-    requiresChannel && !currentChannel ? autoJoinChannel() : Promise.resolve();
+  const channelReady: Promise<void> = requiresChannel && !currentChannel ? autoJoinChannel() : Promise.resolve();
 
   return channelReady.then(
     () =>

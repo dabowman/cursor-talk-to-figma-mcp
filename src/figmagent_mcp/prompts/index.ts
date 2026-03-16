@@ -147,17 +147,14 @@ These cause silent failures or wasted calls — learn them now:
 
 // ─── Text Replacement ───────────────────────────────────────────────────────
 // Replaces: text_replacement_strategy
-server.prompt(
-  "text_replacement",
-  "Strategy for finding and replacing text content in Figma designs",
-  (extra) => {
-    return {
-      messages: [
-        {
-          role: "assistant",
-          content: {
-            type: "text",
-            text: `# Text Replacement Strategy
+server.prompt("text_replacement", "Strategy for finding and replacing text content in Figma designs", (extra) => {
+  return {
+    messages: [
+      {
+        role: "assistant",
+        content: {
+          type: "text",
+          text: `# Text Replacement Strategy
 
 ## 1. Discover
 \`scan_text_nodes(nodeId)\` — returns all text nodes under a parent with their current content, node IDs, and layer paths.
@@ -184,13 +181,12 @@ To change font properties (family, weight, size, color), use \`apply\` — not t
 
 ## 5. Verify
 \`get(nodeId, detail="structure")\` to confirm text content updated correctly. For visual verification, \`export_node_as_image(nodeId)\`.`,
-          },
         },
-      ],
-      description: "Strategy for finding and replacing text content in Figma designs",
-    };
-  },
-);
+      },
+    ],
+    description: "Strategy for finding and replacing text content in Figma designs",
+  };
+});
 
 // ─── Annotation Conversion ──────────────────────────────────────────────────
 // Replaces: annotation_conversion_strategy
@@ -348,17 +344,14 @@ create_connections({
 
 // ─── Component Architecture ─────────────────────────────────────────────────
 // New prompt: covers component creation, variants, properties, and instances
-server.prompt(
-  "component_architecture",
-  "Guide to building components, variants, and instances in Figma",
-  (extra) => {
-    return {
-      messages: [
-        {
-          role: "assistant",
-          content: {
-            type: "text",
-            text: `# Component Architecture
+server.prompt("component_architecture", "Guide to building components, variants, and instances in Figma", (extra) => {
+  return {
+    messages: [
+      {
+        role: "assistant",
+        content: {
+          type: "text",
+          text: `# Component Architecture
 
 ## Creating Components
 
@@ -438,10 +431,9 @@ Surface a nested instance's properties at the parent component level:
 - **Bind variables on COMPONENT nodes**, not instances — bindings propagate automatically.
 - **No reparenting** — to move a node to a new parent, use \`clone_and_modify(nodeId, parentId=newParent)\` + delete the original.
 - Instances are leaf nodes in \`get\` output — call \`get(instanceId)\` to expand internals.`,
-          },
         },
-      ],
-      description: "Guide to building components, variants, and instances in Figma",
-    };
-  },
-);
+      },
+    ],
+    description: "Guide to building components, variants, and instances in Figma",
+  };
+});

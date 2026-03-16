@@ -150,7 +150,8 @@ export async function find(params) {
   const scopeId = scopeNode.id;
 
   // Validate: at least one criterion
-  const hasCriteria = (componentIds && componentIds.length > 0) ||
+  const hasCriteria =
+    (componentIds && componentIds.length > 0) ||
     (variableIds && variableIds.length > 0) ||
     (styleIds && styleIds.length > 0) ||
     textPattern ||
@@ -160,7 +161,9 @@ export async function find(params) {
     (typeFilter && typeFilter.length > 0);
 
   if (!hasCriteria) {
-    throw new Error("At least one search criterion is required (componentId, variableId, styleId, text, name, type, annotation, or hasAnnotation)");
+    throw new Error(
+      "At least one search criterion is required (componentId, variableId, styleId, text, name, type, annotation, or hasAnnotation)",
+    );
   }
 
   // Build lookup structures
@@ -179,12 +182,17 @@ export async function find(params) {
   }
 
   // Excluded definition IDs (component/component_set IDs we're searching for)
-  const excludedDefIds = (excludeDefs && compIdSet) ? compIdSet : null;
+  const excludedDefIds = excludeDefs && compIdSet ? compIdSet : null;
 
   sendProgressUpdate(
-    commandId, "find", "started", 0, 0, 0,
-    "Starting search in \"" + (scopeNode.name || scopeId) + "\"",
-    null
+    commandId,
+    "find",
+    "started",
+    0,
+    0,
+    0,
+    'Starting search in "' + (scopeNode.name || scopeId) + '"',
+    null,
   );
 
   // Traversal state
@@ -203,10 +211,14 @@ export async function find(params) {
     // Progress updates every 500 nodes
     if (nodesVisited % 500 === 0) {
       sendProgressUpdate(
-        commandId, "find", "in_progress",
-        0, 0, nodesVisited,
+        commandId,
+        "find",
+        "in_progress",
+        0,
+        0,
+        nodesVisited,
         "Searched " + nodesVisited + " nodes, " + matches.length + " matches so far",
-        null
+        null,
       );
     }
 
@@ -403,10 +415,20 @@ export async function find(params) {
   });
 
   sendProgressUpdate(
-    commandId, "find", "completed", 100,
-    matches.length, nodesVisited,
-    "Search complete. Found " + matches.length + " matches in " + groups.length + " groups (" + nodesVisited + " nodes searched).",
-    null
+    commandId,
+    "find",
+    "completed",
+    100,
+    matches.length,
+    nodesVisited,
+    "Search complete. Found " +
+      matches.length +
+      " matches in " +
+      groups.length +
+      " groups (" +
+      nodesVisited +
+      " nodes searched).",
+    null,
   );
 
   return {

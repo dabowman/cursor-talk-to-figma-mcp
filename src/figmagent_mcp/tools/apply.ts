@@ -106,7 +106,10 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
 
     // Style references
     textStyleId: z.string().optional().describe("Text style ID to apply (from get_styles). Loads fonts automatically."),
-    effectStyleId: z.string().optional().describe("Effect style ID to apply (from get_design_system). Applies drop shadows, inner shadows, blurs."),
+    effectStyleId: z
+      .string()
+      .optional()
+      .describe("Effect style ID to apply (from get_design_system). Applies drop shadows, inner shadows, blurs."),
 
     // Nested children — apply to child nodes in the same call
     children: z

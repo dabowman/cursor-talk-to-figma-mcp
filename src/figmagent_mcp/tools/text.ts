@@ -41,7 +41,7 @@ server.tool(
 // Text Node Scanning Tool
 server.tool(
   "scan_text_nodes",
-  "DEPRECATED — use find(text: \"regex\") instead for targeted text search with output budget control. This tool returns all text nodes which can overflow context on large designs.",
+  'DEPRECATED — use find(text: "regex") instead for targeted text search with output budget control. This tool returns all text nodes which can overflow context on large designs.',
   {
     nodeId: z.string().describe("ID of the node to scan"),
   },
