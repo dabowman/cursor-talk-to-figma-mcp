@@ -98,6 +98,9 @@ export async function create(params) {
       if (spec.fontColor) {
         applyFillColor(node, spec.fontColor);
       }
+    } else if (nodeType === "SVG") {
+      if (!spec.svg) throw new Error("SVG type requires an 'svg' property with a valid SVG string");
+      node = figma.createNodeFromSvg(spec.svg);
     } else if (nodeType === "RECTANGLE") {
       node = figma.createRectangle();
     } else if (nodeType === "INSTANCE") {
