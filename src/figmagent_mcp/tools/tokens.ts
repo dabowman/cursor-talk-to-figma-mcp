@@ -16,9 +16,9 @@ Use this to discover the design system before applying styles/tokens with the ap
 Works on any Figma plan — no Enterprise required.
 
 For large design systems, use filtering params to reduce output:
-- collection: filter variables to specific collection(s) by name
+- collection: filter variables to specific collection(s) by name (ignored when includeVariables is false)
 - styleType: filter styles to specific type(s): "colors", "texts", "effects", "grids"
-- includeVariables/includeStyles: skip entire sections`,
+- includeVariables/includeStyles: skip entire sections (omitted keys are absent from the response, not null)`,
   {
     maxOutputChars: z
       .number()
@@ -27,9 +27,9 @@ For large design systems, use filtering params to reduce output:
       .optional()
       .describe("Max response size in characters. Default: 30000. Raise for large design systems."),
     collection: z
-      .union([z.string(), z.array(z.string())])
+      .union([z.string().min(1), z.array(z.string().min(1))])
       .optional()
-      .describe("Filter variables to specific collection name(s). String or array of strings."),
+      .describe("Filter variables to specific collection name(s). String or array of strings. Ignored when includeVariables is false."),
     styleType: z
       .union([
         z.enum(["colors", "texts", "effects", "grids"]),
