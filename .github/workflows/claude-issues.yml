@@ -1,0 +1,102 @@
+name: Claude Code
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  claude:
+    if: >
+      github.event.label.name == 'claude' &&
+      github.actor == 'dabowman'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load skill context
+        id: skills
+        run: |
+          {
+            echo "context<<SKILLS_EOF"
+            echo "=== Figma Plugin API Reference ==="
+            cat .claude/skills/figma-plugins/SKILL.md
+            echo ""
+            echo "=== Adding MCP Tools Guide ==="
+            cat .claude/skills/add-mcp-tool/SKILL.md
+            echo "SKILLS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure CI hooks
+        run: |
+          cat > .claude/settings.json << 'SETTINGS'
+          {
+            "hooks": {
+              "Stop": [
+                {
+                  "hooks": [
+                    {
+                      "type": "command",
+                      "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/task-completion-checks.sh"
+                    }
+                  ]
+                },
+                {
+                  "hooks": [
+                    {
+                      "type": "prompt",
+                      "prompt": "Checks passed. Update any docs (CLAUDE.md, SKILL.md, prompts, README.md) affected by your changes. Skip what's already accurate."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          SETTINGS
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-20250514
+          allowed_tools: |
+            Bash(bun install)
+            Bash(bun run lint)
+            Bash(bun run lint:fix)
+            Bash(bun run format)
+            Bash(bun run build:plugin)
+            Bash(bun run test)
+            Bash(bun run check)
+            Bash(git *)
+            Read
+            Write
+            Edit
+            Glob
+            Grep
+          direct_prompt: |
+            Read the issue title and body below, then implement a solution and open a PR.
+
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body }}
+
+            Instructions:
+            1. Understand the issue fully before writing code.
+            2. Create a new branch named `claude/issue-${{ github.event.issue.number }}`.
+            3. Implement the fix or feature.
+            4. Run `bun install`, `bun run lint:fix`, `bun run build:plugin`, and `bun run test` to verify.
+            5. Commit your changes with a descriptive message referencing the issue.
+            6. Push the branch and open a PR that closes #${{ github.event.issue.number }}.
+
+            ## Reference: Figma Plugin API & MCP Tool Patterns
+
+            The following skill documents provide essential context for this codebase.
+            CLAUDE.md (automatically loaded) covers architecture and conventions.
+            These skills cover the Figma Plugin API and how to add new MCP tools:
+
+            ${{ steps.skills.outputs.context }}

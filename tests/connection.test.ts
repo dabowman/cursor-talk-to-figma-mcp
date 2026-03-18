@@ -96,17 +96,21 @@ describe("discoverChannels", () => {
 describe("sendCommandToFigma", () => {
   test("rejects when not connected", async () => {
     // Fresh import — ws starts as null
-    const { sendCommandToFigma } = await import("../src/figmagent_mcp/connection.js");
+    const { sendCommandToFigma, disconnectFromFigma } = await import("../src/figmagent_mcp/connection.js");
 
-    // Patch connectToFigma to not actually connect (avoid side-effect reconnect)
     // sendCommandToFigma calls connectToFigma() when ws is null, then rejects
     const result = sendCommandToFigma("get_document_info", {});
     await expect(result).rejects.toThrow("Not connected to Figma");
+
+    // Clean up the side-effect connection to port 3055 to prevent reconnect loops
+    disconnectFromFigma();
   });
 
   test("rejects non-join commands when no channel is joined", async () => {
-    const { connectToFigma, sendCommandToFigma, pendingRequests } = await import("../src/figmagent_mcp/connection.js");
+    const { connectToFigma, disconnectFromFigma, sendCommandToFigma, pendingRequests } = await import("../src/figmagent_mcp/connection.js");
 
+    // Ensure clean state — previous test may have left a stale connection
+    disconnectFromFigma();
     connectToFigma(PORT);
     // Wait for connection
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -117,8 +121,10 @@ describe("sendCommandToFigma", () => {
   });
 
   test("join command succeeds and sets channel", async () => {
-    const { connectToFigma, joinChannel } = await import("../src/figmagent_mcp/connection.js");
+    const { connectToFigma, disconnectFromFigma, joinChannel } = await import("../src/figmagent_mcp/connection.js");
 
+    // Ensure clean state
+    disconnectFromFigma();
     connectToFigma(PORT);
     await new Promise((resolve) => setTimeout(resolve, 300));
 

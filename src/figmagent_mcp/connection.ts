@@ -146,6 +146,17 @@ export function connectToFigma(port: number = 3055) {
   });
 }
 
+// Close the WebSocket connection and suppress reconnect.
+// Exported for test cleanup — prevents reconnect loops from poisoning shared module state.
+export function disconnectFromFigma(): void {
+  if (ws) {
+    ws.removeAllListeners();
+    ws.close();
+    ws = null;
+  }
+  currentChannel = null;
+}
+
 // Discover active channels from the relay's HTTP endpoint
 export async function discoverChannels(port: number = 3055): Promise<Record<string, { clientCount: number }>> {
   const url = serverUrl === "localhost" ? `http://${serverUrl}:${port}/channels` : `https://${serverUrl}/channels`;
