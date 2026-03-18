@@ -86,18 +86,4 @@ jobs:
             These skills cover the Figma Plugin API and how to add new MCP tools:
 
             ${{ steps.skills.outputs.context }}
-          claude_args: >-
-            --model claude-sonnet-4-20250514
-            --allowedTools "Bash(bun install)"
-            --allowedTools "Bash(bun run lint)"
-            --allowedTools "Bash(bun run lint:fix)"
-            --allowedTools "Bash(bun run format)"
-            --allowedTools "Bash(bun run build:plugin)"
-            --allowedTools "Bash(bun run test)"
-            --allowedTools "Bash(bun run check)"
-            --allowedTools "Bash(git *)"
-            --allowedTools "Read"
-            --allowedTools "Write"
-            --allowedTools "Edit"
-            --allowedTools "Glob"
-            --allowedTools "Grep"
+          claude_args: '--model claude-sonnet-4-20250514 --allowedTools "Bash(bun install),Bash(bun run lint),Bash(bun run lint:fix),Bash(bun run format),Bash(bun run build:plugin),Bash(bun run test),Bash(bun run check),Bash(git *),Read,Write,Edit,Glob,Grep"'
