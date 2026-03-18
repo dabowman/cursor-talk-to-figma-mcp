@@ -233,10 +233,13 @@ Multiple operations in one call:
 
 // Prepare Figma Variables Tool — DTCG JSON to create_variables payloads (MCP-server-side, no Figma connection needed)
 
-function hexToRgba(hex: string): { r: number; g: number; b: number; a: number } {
+export function hexToRgba(hex: string): { r: number; g: number; b: number; a: number } {
   let h = hex.replace(/^#/, "");
   if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
   if (h.length === 4) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+  if (h.length !== 6 && h.length !== 8) {
+    throw new Error(`Invalid hex color "${hex}" — expected #RGB, #RGBA, #RRGGBB, or #RRGGBBAA`);
+  }
   const r = Number.parseInt(h.slice(0, 2), 16) / 255;
   const g = Number.parseInt(h.slice(2, 4), 16) / 255;
   const b = Number.parseInt(h.slice(4, 6), 16) / 255;
@@ -253,7 +256,11 @@ interface ParsedVariable {
   scopes: string[];
 }
 
-function dtcgTypeToFigma(dtcgType: string): FigmaVariableType {
+type ConvertResult =
+  | { ok: true; value: unknown; warning?: string }
+  | { ok: false; error: string };
+
+export function dtcgTypeToFigma(dtcgType: string): FigmaVariableType {
   switch (dtcgType) {
     case "color":
       return "COLOR";
@@ -273,38 +280,54 @@ function dtcgTypeToFigma(dtcgType: string): FigmaVariableType {
   }
 }
 
-function convertValue(dtcgType: string, value: unknown): unknown {
-  if (value === null || value === undefined) return value;
+export function convertValue(dtcgType: string, value: unknown): ConvertResult {
+  if (value === null || value === undefined) return { ok: true, value };
 
   switch (dtcgType) {
     case "color": {
-      if (typeof value === "string" && value.startsWith("#")) {
-        return hexToRgba(value);
+      if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
+        return { ok: false, error: `Alias "${value}" cannot be resolved — provide resolved values or use create_variables with alias references directly` };
       }
-      if (typeof value === "object") return value;
-      return value;
+      if (typeof value === "string" && value.startsWith("#")) {
+        return { ok: true, value: hexToRgba(value) };
+      }
+      if (typeof value === "object") return { ok: true, value };
+      return { ok: false, error: `Unsupported color value: ${String(value)}` };
     }
     case "number":
     case "dimension":
     case "duration":
     case "fontWeight": {
-      if (typeof value === "number") return value;
+      if (typeof value === "number") return { ok: true, value };
       if (typeof value === "string") {
+        if (value.toLowerCase() === "auto") {
+          return { ok: false, error: `"auto" cannot be converted to a FLOAT variable` };
+        }
+        const remMatch = value.match(/^([\d.]+)rem$/i);
+        if (remMatch) {
+          const px = Number.parseFloat(remMatch[1]) * 16;
+          return { ok: true, value: px, warning: `"${value}" converted assuming 1rem=16px (→${px}px); verify if your base font size differs` };
+        }
         const num = Number.parseFloat(value);
-        return Number.isNaN(num) ? 0 : num;
+        if (Number.isNaN(num)) return { ok: false, error: `Cannot parse "${value}" as a number` };
+        return { ok: true, value: num };
       }
-      return 0;
+      return { ok: false, error: `Unsupported numeric value: ${String(value)}` };
     }
     case "boolean": {
-      if (typeof value === "boolean") return value;
-      return value === "true";
+      if (typeof value === "boolean") return { ok: true, value };
+      return { ok: true, value: value === "true" };
     }
-    default:
-      return typeof value === "string" ? value : String(value);
+    default: {
+      if (typeof value === "object" && value !== null) {
+        return { ok: false, error: `Composite $type "${dtcgType}" has an object value — cannot be represented as a single Figma variable` };
+      }
+      return { ok: true, value: typeof value === "string" ? value : String(value) };
+    }
   }
 }
 
-function inferScopes(path: string, figmaType: FigmaVariableType): string[] {
+export function inferScopes(path: string, figmaType: FigmaVariableType): string[] {
   const lower = path.toLowerCase();
 
   if (figmaType === "COLOR") {
@@ -325,7 +348,7 @@ function inferScopes(path: string, figmaType: FigmaVariableType): string[] {
     if (lower.includes("font-weight") || lower.includes("fontweight")) return ["FONT_WEIGHT"];
     if (lower.includes("line-height") || lower.includes("lineheight")) return ["LINE_HEIGHT"];
     if (lower.includes("letter-spacing") || lower.includes("letterspacing")) return ["LETTER_SPACING"];
-    if (lower.includes("stroke") || lower.includes("border-width")) return ["STROKE_FLOAT"];
+    if (lower.includes("stroke") || lower.includes("border-width") || lower.includes("border/width")) return ["STROKE_FLOAT"];
     if (lower.includes("size") || lower.includes("width") || lower.includes("height")) return ["WIDTH_HEIGHT"];
     return ["ALL_SCOPES"];
   }
@@ -339,29 +362,35 @@ function inferScopes(path: string, figmaType: FigmaVariableType): string[] {
   return ["ALL_SCOPES"];
 }
 
-function walkDtcgTree(
+export function walkDtcgTree(
   obj: Record<string, unknown>,
   path: string[],
   prefix: string,
   inheritedType: string | undefined,
   results: ParsedVariable[],
+  errors: string[],
+  warnings: string[],
 ): void {
   // Check if this is a leaf token (has $value)
   if (obj["$value"] !== undefined) {
     const dtcgType = (typeof obj["$type"] === "string" ? obj["$type"] : inheritedType) || "string";
     const figmaType = dtcgTypeToFigma(dtcgType);
     let name = path.join("/");
-    if (prefix && name.startsWith(prefix)) {
+    if (prefix && (name === prefix || name.startsWith(`${prefix}/`))) {
       name = name.slice(prefix.length);
     }
     // Remove leading slashes after prefix strip
     name = name.replace(/^\/+/, "");
     if (!name) return;
 
-    const converted = convertValue(dtcgType, obj["$value"]);
+    const result = convertValue(dtcgType, obj["$value"]);
+    if (!result.ok) {
+      errors.push(`${name}: ${result.error}`);
+      return;
+    }
+    if (result.warning) warnings.push(`${name}: ${result.warning}`);
     const scopes = inferScopes(name, figmaType);
-
-    results.push({ name, type: figmaType, value: converted, scopes });
+    results.push({ name, type: figmaType, value: result.value, scopes });
     return;
   }
 
@@ -371,25 +400,26 @@ function walkDtcgTree(
     if (key.startsWith("$")) continue; // skip DTCG metadata keys
     const child = obj[key];
     if (child !== null && typeof child === "object" && !Array.isArray(child)) {
-      walkDtcgTree(child as Record<string, unknown>, [...path, key], prefix, groupType, results);
+      walkDtcgTree(child as Record<string, unknown>, [...path, key], prefix, groupType, results, errors, warnings);
     }
   }
 }
 
 server.tool(
   "prepare_figma_variables",
-  `Convert DTCG-format design tokens to create_variables-ready payloads. Handles hex→RGBA conversion, $value/$type parsing, alias resolution, scope inference, and batch chunking.
+  `Convert DTCG-format design tokens to create_variables-ready payloads. Handles hex→RGBA conversion, $value/$type parsing, scope inference, and batch chunking.
 
 Runs entirely on the MCP server — no Figma connection needed. Feed the output batches directly to create_variables.
 
 Input a DTCG token tree:
   { tokens: { "color": { "$type": "color", "primary": { "500": { "$value": "#3366FF" } } }, "spacing": { "$type": "dimension", "sm": { "$value": "8px" } } } }
 
-Returns an array of create_variables-ready payloads, each with at most batchSize variables:
-  [{ collection: "Tokens", modes: ["Default"], variables: [{ name: "color/primary/500", type: "COLOR", scopes: ["ALL_FILLS"], values: { "Default": { r: 0.2, g: 0.4, b: 1, a: 1 } } }, ...] }]
+Returns batches plus errors and warnings:
+  { totalVariables: 2, totalBatches: 1, errors: [], warnings: [], batches: [{ collection: "Tokens", modes: ["Default"], variables: [...] }] }
 
 Supported DTCG $type values: color, number, dimension, duration, fontWeight, fontFamily, fontStyle, string, boolean.
-Hex formats: #RGB, #RGBA, #RRGGBB, #RRGGBBAA. Dimension values like "8px" or "1.5rem" have units stripped.
+Hex formats: #RGB, #RGBA, #RRGGBB, #RRGGBBAA. Dimension "8px" strips units; "1.5rem" converts to px (assumes 1rem=16px, warned).
+Aliases like "{color.primary.500}" are NOT resolved — they appear as errors. Composite types (typography, shadow, etc.) are skipped with errors.
 Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORNER_RADIUS, "spacing"→GAP, "font-size"→FONT_SIZE).`,
   {
     tokens: z
@@ -430,9 +460,11 @@ Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORN
 
       // Walk the DTCG tree
       const parsed: ParsedVariable[] = [];
-      walkDtcgTree(params.tokens, [], prefix, undefined, parsed);
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      walkDtcgTree(params.tokens, [], prefix, undefined, parsed, errors, warnings);
 
-      if (parsed.length === 0) {
+      if (parsed.length === 0 && errors.length === 0) {
         return {
           content: [{
             type: "text",
@@ -472,6 +504,8 @@ Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORN
             totalVariables: parsed.length,
             totalBatches: batches.length,
             batchSize,
+            ...(errors.length > 0 && { errors }),
+            ...(warnings.length > 0 && { warnings }),
             batches,
           }),
         }],
