@@ -75,6 +75,7 @@ create({
 **Node types:** FRAME (default), TEXT, RECTANGLE, COMPONENT, INSTANCE, SVG (pass an svg string).
 - COMPONENT works exactly like FRAME but creates a reusable component.
 - INSTANCE requires \`componentId\` (local) or \`componentKey\` (library).
+- SVG requires an \`svg\` property with a valid SVG string — use for icons, arrows, dividers, illustrations.
 
 ## Phase 4: Modify
 
