@@ -56,7 +56,10 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
     strokeWeight: z.number().positive().optional().describe("Stroke weight"),
     cornerRadius: z.number().min(0).optional().describe("Corner radius"),
     opacity: z.number().min(0).max(1).optional().describe("Node opacity (0-1)"),
-    clipsContent: z.boolean().optional().describe("Clip content (frames only). true = overflow hidden, false = overflow visible."),
+    clipsContent: z
+      .boolean()
+      .optional()
+      .describe("Clip content (frames only). true = overflow hidden, false = overflow visible."),
     width: z.number().positive().optional().describe("Width (resizes the node)"),
     height: z.number().positive().optional().describe("Height (resizes the node)"),
 
@@ -68,6 +71,19 @@ const nodeOpSchema: z.ZodType<any> = z.lazy(() =>
       .describe("Font weight (100-900, e.g. 400=Regular, 600=Semi Bold, 700=Bold). TEXT nodes only."),
     fontSize: z.number().positive().optional().describe("Font size in pixels. TEXT nodes only."),
     fontColor: colorSchema.describe("Font color (convenience alias for fillColor on TEXT nodes)."),
+    textAutoResize: z
+      .enum(["NONE", "WIDTH_AND_HEIGHT", "HEIGHT", "TRUNCATE"])
+      .optional()
+      .describe("How the text box adjusts to fit content. HEIGHT is required for FILL sizing. TEXT nodes only."),
+    textTruncation: z
+      .enum(["DISABLED", "ENDING"])
+      .optional()
+      .describe("Ellipsis truncation when text overflows. ENDING adds '...' at the end. TEXT nodes only."),
+    maxLines: z
+      .number()
+      .positive()
+      .optional()
+      .describe("Max lines before truncation. Requires textTruncation: ENDING. TEXT nodes only."),
 
     // Layout properties
     layoutMode: z.enum(["NONE", "HORIZONTAL", "VERTICAL"]).optional().describe("Auto-layout direction"),
@@ -138,8 +154,8 @@ For multiple nodes:
 
 Change fonts on existing TEXT nodes (never delete and recreate text just to change font):
   { nodes: [
-    { nodeId: "title", fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 32 },
-    { nodeId: "body", fontFamily: "Inter", fontWeight: 400, fontSize: 15, fontColor: { r: 0.3, g: 0.3, b: 0.3 } }
+    { nodeId: "title", fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 32, textAutoResize: "HEIGHT" },
+    { nodeId: "body", fontFamily: "Inter", fontWeight: 400, fontSize: 15, fontColor: { r: 0.3, g: 0.3, b: 0.3 }, textTruncation: "ENDING", maxLines: 3 }
   ]}
 
 For nested structures (mirrors create tool pattern):

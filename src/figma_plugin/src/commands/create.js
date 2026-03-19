@@ -98,6 +98,16 @@ export async function create(params) {
       if (spec.fontColor) {
         applyFillColor(node, spec.fontColor);
       }
+      // Apply text-specific properties
+      if (spec.textAutoResize !== undefined) {
+        node.textAutoResize = spec.textAutoResize;
+      }
+      if (spec.textTruncation !== undefined) {
+        node.textTruncation = spec.textTruncation;
+      }
+      if (spec.maxLines !== undefined) {
+        node.maxLines = spec.maxLines;
+      }
     } else if (nodeType === "SVG") {
       if (!spec.svg) throw new Error("SVG type requires an 'svg' property with a valid SVG string");
       node = figma.createNodeFromSvg(spec.svg);
@@ -211,8 +221,30 @@ export async function create(params) {
       if (spec.layoutSizingVertical) node.layoutSizingVertical = spec.layoutSizingVertical;
     }
 
+    // For TEXT nodes, apply layout sizing and handle textAutoResize coercion
+    if (nodeType === "TEXT") {
+      if (spec.layoutSizingHorizontal === "FILL") {
+        node.layoutSizingHorizontal = "FILL";
+        // Auto-coerce textAutoResize to prevent width collapse
+        if (spec.textAutoResize === undefined && node.textAutoResize === "WIDTH_AND_HEIGHT") {
+          node.textAutoResize = "HEIGHT";
+        }
+      } else if (spec.layoutSizingHorizontal) {
+        node.layoutSizingHorizontal = spec.layoutSizingHorizontal;
+      }
+      if (spec.layoutSizingVertical) {
+        node.layoutSizingVertical = spec.layoutSizingVertical;
+      }
+    }
+
     if (parentNode && "layoutMode" in parentNode && parentNode.layoutMode !== "NONE") {
-      if (spec.layoutSizingHorizontal === "FILL") node.layoutSizingHorizontal = "FILL";
+      if (spec.layoutSizingHorizontal === "FILL") {
+        node.layoutSizingHorizontal = "FILL";
+        // Auto-coerce textAutoResize for TEXT nodes to prevent width collapse
+        if (nodeType === "TEXT" && spec.textAutoResize === undefined && node.textAutoResize === "WIDTH_AND_HEIGHT") {
+          node.textAutoResize = "HEIGHT";
+        }
+      }
       if (spec.layoutSizingVertical === "FILL") node.layoutSizingVertical = "FILL";
     }
 

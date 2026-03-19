@@ -107,7 +107,9 @@ describe("sendCommandToFigma", () => {
   });
 
   test("rejects non-join commands when no channel is joined", async () => {
-    const { connectToFigma, disconnectFromFigma, sendCommandToFigma, pendingRequests } = await import("../src/figmagent_mcp/connection.js");
+    const { connectToFigma, disconnectFromFigma, sendCommandToFigma, pendingRequests } = await import(
+      "../src/figmagent_mcp/connection.js"
+    );
 
     // Ensure clean state — previous test may have left a stale connection
     disconnectFromFigma();

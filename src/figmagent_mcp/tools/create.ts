@@ -50,8 +50,28 @@ const nodeSpecSchema: z.ZodType<any> = z.lazy(() =>
     fontFamily: z.string().optional().describe("Font family (default: Inter)"),
     fontStyle: z.string().optional().describe("Font style (default: Regular)"),
     fontColor: colorSchema,
+    textAutoResize: z
+      .enum(["NONE", "WIDTH_AND_HEIGHT", "HEIGHT", "TRUNCATE"])
+      .optional()
+      .describe(
+        "How the text box adjusts to fit content. HEIGHT is required for FILL sizing. Defaults to WIDTH_AND_HEIGHT.",
+      ),
+    textTruncation: z
+      .enum(["DISABLED", "ENDING"])
+      .optional()
+      .describe("Ellipsis truncation when text overflows. ENDING adds '...' at the end."),
+    maxLines: z
+      .number()
+      .positive()
+      .optional()
+      .describe("Max lines before truncation. Requires textTruncation: ENDING."),
     // SVG-specific (type: SVG)
-    svg: z.string().optional().describe("SVG string for SVG type. Figma parses it into vector nodes. Example: '<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path d=\"M12 2L2 22h20L12 2z\"/></svg>'"),
+    svg: z
+      .string()
+      .optional()
+      .describe(
+        'SVG string for SVG type. Figma parses it into vector nodes. Example: \'<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>\'',
+      ),
     // Instance-specific (type: INSTANCE)
     componentId: z.string().optional().describe("Node ID of a local COMPONENT to instantiate (for INSTANCE type)"),
     componentKey: z
@@ -107,7 +127,7 @@ For multiple root nodes (e.g. variant components), use the nodes array:
 Each node spec in the array is created in parallel. Use this when building multiple sibling components (e.g. variants before combine_as_variants).
 
 FRAME and COMPONENT nodes support auto-layout (layoutMode, padding, alignment, spacing, sizing), fill/stroke colors, and cornerRadius.
-TEXT nodes support text, fontSize, fontWeight, fontFamily, fontStyle, and fontColor.
+TEXT nodes support text, fontSize, fontWeight, fontFamily, fontStyle, fontColor, textAutoResize, textTruncation, and maxLines.
 RECTANGLE nodes support fillColor, strokeColor, strokeWeight, and cornerRadius. IMPORTANT: RECTANGLE cannot use FILL sizing — use a FRAME with fillColor instead when you need a shape that stretches.
 INSTANCE nodes require componentId or componentKey. Position and parentId work as usual.
 SVG nodes require an svg property with a valid SVG string. Figma parses it into vector nodes inside a frame. Use for icons, illustrations, dividers, arrows, or any shape that needs paths.

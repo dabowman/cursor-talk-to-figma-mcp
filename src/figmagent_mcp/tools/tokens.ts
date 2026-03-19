@@ -306,11 +306,15 @@ Notes:
           lineHeight: z
             .any()
             .optional()
-            .describe("Line height: 'AUTO', { value, unit }, or number. Unitless < 10 auto-converts to PERCENT (1.5 → 150%). >= 10 treated as PIXELS."),
+            .describe(
+              "Line height: 'AUTO', { value, unit }, or number. Unitless < 10 auto-converts to PERCENT (1.5 → 150%). >= 10 treated as PIXELS.",
+            ),
           letterSpacing: z
             .any()
             .optional()
-            .describe("Letter spacing: { value, unit } or number. |value| < 1 auto-converts to PERCENT (-0.025 → -2.5%). |value| >= 1 treated as PIXELS."),
+            .describe(
+              "Letter spacing: { value, unit } or number. |value| < 1 auto-converts to PERCENT (-0.025 → -2.5%). |value| >= 1 treated as PIXELS.",
+            ),
           paragraphSpacing: z.number().optional().describe("Paragraph spacing in pixels"),
           paragraphIndent: z.number().optional().describe("Paragraph indent in pixels"),
           textDecoration: z.enum(["NONE", "UNDERLINE", "STRIKETHROUGH"]).optional().describe("Text decoration"),
@@ -421,8 +425,14 @@ Multiple operations in one call:
           fontFamily: z.string().optional().describe("New font family for TEXT styles"),
           fontStyle: z.string().optional().describe("New font style for TEXT styles"),
           fontSize: z.number().optional().describe("New font size for TEXT styles"),
-          lineHeight: z.any().optional().describe("New line height: 'AUTO', { value, unit }, or number. Unitless < 10 → PERCENT, >= 10 → PIXELS."),
-          letterSpacing: z.any().optional().describe("New letter spacing: { value, unit } or number. |value| < 1 → PERCENT, >= 1 → PIXELS."),
+          lineHeight: z
+            .any()
+            .optional()
+            .describe("New line height: 'AUTO', { value, unit }, or number. Unitless < 10 → PERCENT, >= 10 → PIXELS."),
+          letterSpacing: z
+            .any()
+            .optional()
+            .describe("New letter spacing: { value, unit } or number. |value| < 1 → PERCENT, >= 1 → PIXELS."),
           paragraphSpacing: z.number().optional().describe("New paragraph spacing"),
           paragraphIndent: z.number().optional().describe("New paragraph indent"),
           textDecoration: z.enum(["NONE", "UNDERLINE", "STRIKETHROUGH"]).optional().describe("New text decoration"),

@@ -193,6 +193,17 @@ async function processNode(op, styleCache) {
     if (op.fontSize !== undefined) {
       node.fontSize = toNumber(op.fontSize, 14);
     }
+
+    // Apply text-specific properties
+    if (op.textAutoResize !== undefined) {
+      node.textAutoResize = op.textAutoResize;
+    }
+    if (op.textTruncation !== undefined) {
+      node.textTruncation = op.textTruncation;
+    }
+    if (op.maxLines !== undefined) {
+      node.maxLines = toNumber(op.maxLines, null);
+    }
   }
 
   // Layout direct values (require layoutMode !== "NONE")
@@ -212,6 +223,15 @@ async function processNode(op, styleCache) {
   }
   if (op.layoutSizingHorizontal !== undefined && "layoutSizingHorizontal" in node) {
     node.layoutSizingHorizontal = op.layoutSizingHorizontal;
+    // Auto-coerce textAutoResize for TEXT nodes to prevent width collapse
+    if (
+      node.type === "TEXT" &&
+      op.layoutSizingHorizontal === "FILL" &&
+      op.textAutoResize === undefined &&
+      node.textAutoResize === "WIDTH_AND_HEIGHT"
+    ) {
+      node.textAutoResize = "HEIGHT";
+    }
   }
   if (op.layoutSizingVertical !== undefined && "layoutSizingVertical" in node) {
     node.layoutSizingVertical = op.layoutSizingVertical;
