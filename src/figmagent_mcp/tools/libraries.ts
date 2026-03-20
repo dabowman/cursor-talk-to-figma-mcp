@@ -395,6 +395,137 @@ server.tool(
   },
 );
 
+// --- Tool 4b: batch get_component_variants ---
+
+server.tool(
+  "get_component_variants_batch",
+  "Batch get variants for multiple component sets in one call. Groups requests by fileKey to minimize API calls. Use instead of repeated get_component_variants calls.",
+  {
+    componentSets: z
+      .array(
+        z.object({
+          fileKey: z.string().describe("The library file key."),
+          componentSetNodeId: z.string().describe("The node_id of the component set."),
+        }),
+      )
+      .min(1)
+      .describe("Array of component sets to fetch variants for."),
+  },
+  async ({ componentSets }: any) => {
+    try {
+      // Group by fileKey to batch API calls
+      const byFile = new Map<string, string[]>();
+      for (const cs of componentSets) {
+        if (!byFile.has(cs.fileKey)) byFile.set(cs.fileKey, []);
+        byFile.get(cs.fileKey)!.push(cs.componentSetNodeId);
+      }
+
+      // Fetch nodes and components per file in parallel
+      const fileResults = await Promise.all(
+        [...byFile.entries()].map(async ([fileKey, nodeIds]) => {
+          const [nodesData, allComponents] = await Promise.all([
+            getFileNodes(fileKey, nodeIds),
+            getFileComponents(fileKey),
+          ]);
+          return { fileKey, nodesData, allComponents };
+        }),
+      );
+
+      // Build lookup maps per file
+      const fileDataMap = new Map<
+        string,
+        { nodesData: any; keyByNodeId: Map<string, string> }
+      >();
+      for (const { fileKey, nodesData, allComponents } of fileResults) {
+        const keyByNodeId = new Map<string, string>();
+        for (const comp of allComponents) {
+          keyByNodeId.set(comp.node_id, comp.key);
+        }
+        fileDataMap.set(fileKey, { nodesData, keyByNodeId });
+      }
+
+      // Process each component set
+      const results = componentSets.map((cs: any) => {
+        const fileData = fileDataMap.get(cs.fileKey)!;
+        const nodeData = fileData.nodesData.nodes[cs.componentSetNodeId];
+
+        if (!nodeData) {
+          return {
+            fileKey: cs.fileKey,
+            componentSetNodeId: cs.componentSetNodeId,
+            success: false,
+            error: `Component set node "${cs.componentSetNodeId}" not found.`,
+          };
+        }
+
+        const doc = nodeData.document;
+        const children: any[] = doc.children || [];
+
+        const variantPropertyValues = new Map<string, Set<string>>();
+        const variants: Array<{ name: string; key: string | undefined; nodeId: string }> = [];
+
+        for (const child of children) {
+          if (child.type !== "COMPONENT") continue;
+          const name: string = child.name || "";
+          const key = fileData.keyByNodeId.get(child.id);
+          variants.push({ name, key, nodeId: child.id });
+
+          const pairs = name.split(",").map((s: string) => s.trim());
+          for (const pair of pairs) {
+            const eqIdx = pair.indexOf("=");
+            if (eqIdx === -1) continue;
+            const propName = pair.substring(0, eqIdx).trim();
+            const propValue = pair.substring(eqIdx + 1).trim();
+            if (!variantPropertyValues.has(propName)) {
+              variantPropertyValues.set(propName, new Set());
+            }
+            variantPropertyValues.get(propName)!.add(propValue);
+          }
+        }
+
+        const properties: Record<string, string[]> = {};
+        for (const [prop, values] of variantPropertyValues) {
+          properties[prop] = [...values];
+        }
+
+        return {
+          fileKey: cs.fileKey,
+          componentSetNodeId: cs.componentSetNodeId,
+          componentSetName: doc.name,
+          success: true,
+          properties,
+          variants: variants.map((v) => ({
+            name: v.name,
+            key: v.key || null,
+            nodeId: v.nodeId,
+          })),
+        };
+      });
+
+      const succeeded = results.filter((r: any) => r.success).length;
+      const failed = results.filter((r: any) => !r.success).length;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ total: results.length, succeeded, failed, results }),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error batch getting component variants: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
 // --- Tool 5: get_library_variables ---
 
 server.tool(
