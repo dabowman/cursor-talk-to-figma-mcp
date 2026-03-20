@@ -283,7 +283,7 @@ async function handleCommand(command, params) {
     case "get_local_components":
       return await getLocalComponents();
     case "get_design_system":
-      return await getDesignSystem();
+      return await getDesignSystem(params);
     case "create_variables":
       return await createVariables(params);
     case "update_variables":

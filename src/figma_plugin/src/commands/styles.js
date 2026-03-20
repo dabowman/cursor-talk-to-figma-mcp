@@ -230,9 +230,58 @@ export async function getLocalComponents() {
 }
 
 // Combined design system discovery — returns styles + variables in one call
-export async function getDesignSystem() {
-  const [styles, variables] = await Promise.all([getStyles(), getLocalVariables()]);
-  return { styles: styles, variables: variables };
+// Supports filtering: collection (string|string[]), styleType (string|string[]),
+// includeVariables (bool), includeStyles (bool)
+export async function getDesignSystem(params) {
+  const includeVariables = !(params && params.includeVariables === false);
+  const includeStyles = !(params && params.includeStyles === false);
+
+  const promises = [];
+  promises.push(includeStyles ? getStyles() : Promise.resolve(null));
+  promises.push(includeVariables ? getLocalVariables() : Promise.resolve(null));
+
+  const [styles, variables] = await Promise.all(promises);
+
+  const result = {};
+
+  // Filter styles by styleType if provided
+  if (styles) {
+    if (params && params.styleType) {
+      const types = Array.isArray(params.styleType) ? params.styleType : [params.styleType];
+      const filtered = {};
+      for (let i = 0; i < types.length; i++) {
+        const t = types[i];
+        if (styles[t] !== undefined) {
+          filtered[t] = styles[t];
+        }
+      }
+      result.styles = filtered;
+    } else {
+      result.styles = styles;
+    }
+  }
+
+  // Filter variables by collection name if provided
+  if (variables) {
+    if (params && params.collection) {
+      const names = Array.isArray(params.collection) ? params.collection : [params.collection];
+      const namesLower = [];
+      for (let i = 0; i < names.length; i++) {
+        namesLower.push(names[i].toLowerCase());
+      }
+      const filtered = [];
+      for (let i = 0; i < variables.length; i++) {
+        if (namesLower.indexOf(variables[i].name.toLowerCase()) !== -1) {
+          filtered.push(variables[i]);
+        }
+      }
+      result.variables = filtered;
+    } else {
+      result.variables = variables;
+    }
+  }
+
+  return result;
 }
 
 // Create variables — create a collection (or use existing) + variables + set values
