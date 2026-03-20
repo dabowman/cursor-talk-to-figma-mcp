@@ -290,97 +290,105 @@ server.tool(
 
 server.tool(
   "get_component_variants",
-  "Get the available variants for a component set in a library. Returns variant property names, possible values, and the individual component keys for each variant combination. Use after finding a component set with get_library_components to understand what variants you can instantiate.",
+  "Get the available variants for one or more component sets in a library. Returns variant property names, possible values, and the individual component keys for each variant combination. Accepts a single componentSetNodeId or an array of componentSetNodeIds for batch lookup (saves repeated calls). Use after finding component sets with get_library_components.",
   {
     fileKey: z.string().describe("The library file key."),
-    componentSetNodeId: z.string().describe("The node_id of the component set (from get_library_components results)."),
+    componentSetNodeId: z
+      .string()
+      .optional()
+      .describe("The node_id of a single component set. Use this OR componentSetNodeIds."),
+    componentSetNodeIds: z
+      .array(z.string())
+      .optional()
+      .describe("Array of component set node_ids for batch lookup. Use this OR componentSetNodeId."),
   },
-  async ({ fileKey, componentSetNodeId }: any) => {
+  async ({ fileKey, componentSetNodeId, componentSetNodeIds }: any) => {
     try {
-      // Fetch the node tree and the full component list in parallel
-      const [nodesData, allComponents] = await Promise.all([
-        getFileNodes(fileKey, [componentSetNodeId]),
-        getFileComponents(fileKey),
-      ]);
+      // Normalize to an array of IDs
+      const ids: string[] = [];
+      if (componentSetNodeId) ids.push(componentSetNodeId);
+      if (componentSetNodeIds) ids.push(...componentSetNodeIds);
 
-      const nodeData = nodesData.nodes[componentSetNodeId];
-      if (!nodeData) {
+      if (ids.length === 0) {
         return {
-          content: [
-            {
-              type: "text",
-              text: `Component set node "${componentSetNodeId}" not found in file ${fileKey}.`,
-            },
-          ],
+          content: [{ type: "text", text: "Error: provide componentSetNodeId or componentSetNodeIds." }],
         };
       }
 
-      const doc = nodeData.document;
-      const children: any[] = doc.children || [];
+      // Fetch all node trees and the full component list in parallel
+      const [nodesData, allComponents] = await Promise.all([getFileNodes(fileKey, ids), getFileComponents(fileKey)]);
 
-      // Build a map of node_id → published key from the components list
+      // Build a map of node_id → published key from the components list (once)
       const keyByNodeId = new Map<string, string>();
       for (const comp of allComponents) {
         keyByNodeId.set(comp.node_id, comp.key);
       }
 
-      // Parse variant properties from child names
-      // Names look like "Type=Primary, Size=Large, State=Default"
-      const variantPropertyValues = new Map<string, Set<string>>();
-      const variants: Array<{
-        name: string;
-        key: string | undefined;
-        nodeId: string;
-      }> = [];
+      const sections: string[] = [];
 
-      for (const child of children) {
-        if (child.type !== "COMPONENT") continue;
+      for (const setId of ids) {
+        const nodeData = nodesData.nodes[setId];
+        if (!nodeData) {
+          sections.push(`---\nComponent Set "${setId}": not found in file ${fileKey}.\n`);
+          continue;
+        }
 
-        const name: string = child.name || "";
-        const key = keyByNodeId.get(child.id);
+        const doc = nodeData.document;
+        const children: any[] = doc.children || [];
 
-        variants.push({ name, key, nodeId: child.id });
+        // Parse variant properties from child names
+        const variantPropertyValues = new Map<string, Set<string>>();
+        const variants: Array<{ name: string; key: string | undefined; nodeId: string }> = [];
 
-        // Parse "Prop=Value, Prop2=Value2" format
-        const pairs = name.split(",").map((s: string) => s.trim());
-        for (const pair of pairs) {
-          const eqIdx = pair.indexOf("=");
-          if (eqIdx === -1) continue;
-          const propName = pair.substring(0, eqIdx).trim();
-          const propValue = pair.substring(eqIdx + 1).trim();
-          if (!variantPropertyValues.has(propName)) {
-            variantPropertyValues.set(propName, new Set());
+        for (const child of children) {
+          if (child.type !== "COMPONENT") continue;
+
+          const name: string = child.name || "";
+          const key = keyByNodeId.get(child.id);
+          variants.push({ name, key, nodeId: child.id });
+
+          const pairs = name.split(",").map((s: string) => s.trim());
+          for (const pair of pairs) {
+            const eqIdx = pair.indexOf("=");
+            if (eqIdx === -1) continue;
+            const propName = pair.substring(0, eqIdx).trim();
+            const propValue = pair.substring(eqIdx + 1).trim();
+            if (!variantPropertyValues.has(propName)) {
+              variantPropertyValues.set(propName, new Set());
+            }
+            variantPropertyValues.get(propName)!.add(propValue);
           }
-          variantPropertyValues.get(propName)!.add(propValue);
         }
-      }
 
-      // Format output
-      const lines = [`Component Set: ${doc.name}\n`];
+        // Format output for this component set
+        const lines = [`---\nComponent Set: ${doc.name}\n`];
 
-      if (variantPropertyValues.size > 0) {
-        lines.push("Variant Properties:");
-        for (const [prop, values] of variantPropertyValues) {
-          lines.push(`  ${prop}: ${[...values].join(", ")}`);
+        if (variantPropertyValues.size > 0) {
+          lines.push("Variant Properties:");
+          for (const [prop, values] of variantPropertyValues) {
+            lines.push(`  ${prop}: ${[...values].join(", ")}`);
+          }
         }
+
+        lines.push(`\nVariants (${variants.length} total):`);
+        const shown = variants.slice(0, 20);
+        for (const v of shown) {
+          const keyStr = v.key || "(key not published)";
+          lines.push(`  ${v.name} → key: ${keyStr}`);
+        }
+        if (variants.length > 20) {
+          lines.push(`  ... and ${variants.length - 20} more variants`);
+        }
+
+        sections.push(lines.join("\n"));
       }
 
-      lines.push(`\nVariants (${variants.length} total):`);
-      const shown = variants.slice(0, 20);
-      for (const v of shown) {
-        const keyStr = v.key || "(key not published)";
-        lines.push(`  ${v.name} → key: ${keyStr}`);
-      }
-      if (variants.length > 20) {
-        lines.push(`  ... and ${variants.length - 20} more variants`);
-      }
-
-      lines.push(
+      sections.push(
         "\nUse import_library_component with an individual variant key, or use the component set key with variantProperties.",
       );
 
       return {
-        content: [{ type: "text", text: lines.join("\n") }],
+        content: [{ type: "text", text: sections.join("\n") }],
       };
     } catch (error) {
       return {
