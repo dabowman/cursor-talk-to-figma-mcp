@@ -191,7 +191,7 @@ Instances are leaf nodes by default — call get on the instance ID to expand it
         'Detail level. "structure": id/name/type/childCount only. "layout": + dimensions, auto-layout, text, component refs. "full": + fills, strokes, variable bindings, text styles. Default: "layout"',
       ),
     depth: z
-      .number()
+      .coerce.number()
       .int()
       .min(0)
       .optional()
@@ -225,7 +225,7 @@ Instances are leaf nodes by default — call get on the instance ID to expand it
       .optional()
       .describe("Include component key, parent info for instances in defs.components. Default: true"),
     maxOutputChars: z
-      .number()
+      .coerce.number()
       .int()
       .min(1000)
       .optional()

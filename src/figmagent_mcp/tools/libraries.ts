@@ -157,7 +157,7 @@ server.tool(
   {
     fileKey: z.string().describe("The Figma file key of the library."),
     query: z.string().describe("Search term. Matches against component name, description, and containing frame."),
-    limit: z.number().optional().default(10).describe("Maximum results to return. Default 10."),
+    limit: z.coerce.number().optional().default(10).describe("Maximum results to return. Default 10."),
   },
   async ({ fileKey, query, limit }: any) => {
     try {
