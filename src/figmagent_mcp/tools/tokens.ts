@@ -231,6 +231,296 @@ Multiple operations in one call:
   },
 );
 
+// Prepare Figma Variables Tool — DTCG JSON to create_variables payloads (MCP-server-side, no Figma connection needed)
+
+export function hexToRgba(hex: string): { r: number; g: number; b: number; a: number } {
+  let h = hex.replace(/^#/, "");
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length === 4) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+  if (h.length !== 6 && h.length !== 8) {
+    throw new Error(`Invalid hex color "${hex}" — expected #RGB, #RGBA, #RRGGBB, or #RRGGBBAA`);
+  }
+  const r = Number.parseInt(h.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(h.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(h.slice(4, 6), 16) / 255;
+  const a = h.length === 8 ? Number.parseInt(h.slice(6, 8), 16) / 255 : 1;
+  return { r: Math.round(r * 1000) / 1000, g: Math.round(g * 1000) / 1000, b: Math.round(b * 1000) / 1000, a: Math.round(a * 1000) / 1000 };
+}
+
+type FigmaVariableType = "COLOR" | "FLOAT" | "STRING" | "BOOLEAN";
+
+interface ParsedVariable {
+  name: string;
+  type: FigmaVariableType;
+  value: unknown;
+  scopes: string[];
+}
+
+type ConvertResult =
+  | { ok: true; value: unknown; warning?: string }
+  | { ok: false; error: string };
+
+export function dtcgTypeToFigma(dtcgType: string): FigmaVariableType {
+  switch (dtcgType) {
+    case "color":
+      return "COLOR";
+    case "number":
+    case "dimension":
+    case "duration":
+    case "fontWeight":
+      return "FLOAT";
+    case "fontFamily":
+    case "string":
+    case "fontStyle":
+      return "STRING";
+    case "boolean":
+      return "BOOLEAN";
+    default:
+      return "STRING";
+  }
+}
+
+export function convertValue(dtcgType: string, value: unknown): ConvertResult {
+  if (value === null || value === undefined) return { ok: true, value };
+
+  switch (dtcgType) {
+    case "color": {
+      if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
+        return { ok: false, error: `Alias "${value}" cannot be resolved — provide resolved values or use create_variables with alias references directly` };
+      }
+      if (typeof value === "string" && value.startsWith("#")) {
+        return { ok: true, value: hexToRgba(value) };
+      }
+      if (typeof value === "object") return { ok: true, value };
+      return { ok: false, error: `Unsupported color value: ${String(value)}` };
+    }
+    case "number":
+    case "dimension":
+    case "duration":
+    case "fontWeight": {
+      if (typeof value === "number") return { ok: true, value };
+      if (typeof value === "string") {
+        if (value.toLowerCase() === "auto") {
+          return { ok: false, error: `"auto" cannot be converted to a FLOAT variable` };
+        }
+        const remMatch = value.match(/^([\d.]+)rem$/i);
+        if (remMatch) {
+          const px = Number.parseFloat(remMatch[1]) * 16;
+          return { ok: true, value: px, warning: `"${value}" converted assuming 1rem=16px (→${px}px); verify if your base font size differs` };
+        }
+        const num = Number.parseFloat(value);
+        if (Number.isNaN(num)) return { ok: false, error: `Cannot parse "${value}" as a number` };
+        return { ok: true, value: num };
+      }
+      return { ok: false, error: `Unsupported numeric value: ${String(value)}` };
+    }
+    case "boolean": {
+      if (typeof value === "boolean") return { ok: true, value };
+      return { ok: true, value: value === "true" };
+    }
+    default: {
+      if (typeof value === "object" && value !== null) {
+        return { ok: false, error: `Composite $type "${dtcgType}" has an object value — cannot be represented as a single Figma variable` };
+      }
+      return { ok: true, value: typeof value === "string" ? value : String(value) };
+    }
+  }
+}
+
+export function inferScopes(path: string, figmaType: FigmaVariableType): string[] {
+  const lower = path.toLowerCase();
+
+  if (figmaType === "COLOR") {
+    if (lower.includes("stroke")) return ["STROKE_COLOR"];
+    if (lower.includes("text") || lower.includes("font-color") || lower.includes("foreground")) return ["TEXT_FILL"];
+    if (lower.includes("fill") || lower.includes("background") || lower.includes("bg") || lower.includes("surface")) return ["ALL_FILLS"];
+    if (lower.includes("effect") || lower.includes("shadow")) return ["EFFECT_COLOR"];
+    if (lower.includes("border")) return ["STROKE_COLOR"];
+    return ["ALL_FILLS"];
+  }
+
+  if (figmaType === "FLOAT") {
+    if (lower.includes("radius") || lower.includes("corner")) return ["CORNER_RADIUS"];
+    if (lower.includes("spacing") || lower.includes("gap")) return ["GAP"];
+    if (lower.includes("padding")) return ["GAP"];
+    if (lower.includes("opacity") || lower.includes("alpha")) return ["OPACITY"];
+    if (lower.includes("font-size") || lower.includes("fontsize") || lower.includes("text-size")) return ["FONT_SIZE"];
+    if (lower.includes("font-weight") || lower.includes("fontweight")) return ["FONT_WEIGHT"];
+    if (lower.includes("line-height") || lower.includes("lineheight")) return ["LINE_HEIGHT"];
+    if (lower.includes("letter-spacing") || lower.includes("letterspacing")) return ["LETTER_SPACING"];
+    if (lower.includes("stroke") || lower.includes("border-width") || lower.includes("border/width")) return ["STROKE_FLOAT"];
+    if (lower.includes("size") || lower.includes("width") || lower.includes("height")) return ["WIDTH_HEIGHT"];
+    return ["ALL_SCOPES"];
+  }
+
+  if (figmaType === "STRING") {
+    if (lower.includes("font-family") || lower.includes("fontfamily")) return ["FONT_FAMILY"];
+    if (lower.includes("font-style") || lower.includes("fontstyle")) return ["FONT_STYLE"];
+    return ["ALL_SCOPES"];
+  }
+
+  return ["ALL_SCOPES"];
+}
+
+export function walkDtcgTree(
+  obj: Record<string, unknown>,
+  path: string[],
+  prefix: string,
+  inheritedType: string | undefined,
+  results: ParsedVariable[],
+  errors: string[],
+  warnings: string[],
+): void {
+  // Check if this is a leaf token (has $value)
+  if (obj["$value"] !== undefined) {
+    const dtcgType = (typeof obj["$type"] === "string" ? obj["$type"] : inheritedType) || "string";
+    const figmaType = dtcgTypeToFigma(dtcgType);
+    let name = path.join("/");
+    if (prefix && (name === prefix || name.startsWith(`${prefix}/`))) {
+      name = name.slice(prefix.length);
+    }
+    // Remove leading slashes after prefix strip
+    name = name.replace(/^\/+/, "");
+    if (!name) return;
+
+    const result = convertValue(dtcgType, obj["$value"]);
+    if (!result.ok) {
+      errors.push(`${name}: ${result.error}`);
+      return;
+    }
+    if (result.warning) warnings.push(`${name}: ${result.warning}`);
+    const scopes = inferScopes(name, figmaType);
+    results.push({ name, type: figmaType, value: result.value, scopes });
+    return;
+  }
+
+  // Recurse into child objects
+  const groupType = typeof obj["$type"] === "string" ? (obj["$type"] as string) : inheritedType;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith("$")) continue; // skip DTCG metadata keys
+    const child = obj[key];
+    if (child !== null && typeof child === "object" && !Array.isArray(child)) {
+      walkDtcgTree(child as Record<string, unknown>, [...path, key], prefix, groupType, results, errors, warnings);
+    }
+  }
+}
+
+server.tool(
+  "prepare_figma_variables",
+  `Convert DTCG-format design tokens to create_variables-ready payloads. Handles hex→RGBA conversion, $value/$type parsing, scope inference, and batch chunking.
+
+Runs entirely on the MCP server — no Figma connection needed. Feed the output batches directly to create_variables.
+
+Input a DTCG token tree:
+  { tokens: { "color": { "$type": "color", "primary": { "500": { "$value": "#3366FF" } } }, "spacing": { "$type": "dimension", "sm": { "$value": "8px" } } } }
+
+Returns batches plus errors and warnings:
+  { totalVariables: 2, totalBatches: 1, errors: [], warnings: [], batches: [{ collection: "Tokens", modes: ["Default"], variables: [...] }] }
+
+Supported DTCG $type values: color, number, dimension, duration, fontWeight, fontFamily, fontStyle, string, boolean.
+Hex formats: #RGB, #RGBA, #RRGGBB, #RRGGBBAA. Dimension "8px" strips units; "1.5rem" converts to px (assumes 1rem=16px, warned).
+Aliases like "{color.primary.500}" are NOT resolved — they appear as errors. Composite types (typography, shadow, etc.) are skipped with errors.
+Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORNER_RADIUS, "spacing"→GAP, "font-size"→FONT_SIZE).`,
+  {
+    tokens: z
+      .record(z.string(), z.any())
+      .describe("DTCG JSON object with $value/$type entries (can be deeply nested). Top-level keys become path prefixes."),
+    collectionName: z
+      .string()
+      .optional()
+      .describe("Name for the Figma variable collection. Default: 'Tokens'"),
+    modes: z
+      .array(z.string())
+      .optional()
+      .describe("Mode names for the collection. Default: ['Default']"),
+    batchSize: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe("Variables per batch payload. Default: 25"),
+    prefix: z
+      .string()
+      .optional()
+      .describe("Prefix to strip from variable paths (e.g. 'figma/'). Removed from the start of each variable name."),
+  },
+  async (params: {
+    tokens: Record<string, unknown>;
+    collectionName?: string;
+    modes?: string[];
+    batchSize?: number;
+    prefix?: string;
+  }) => {
+    try {
+      const collection = params.collectionName || "Tokens";
+      const modes = params.modes || ["Default"];
+      const batchSize = params.batchSize || 25;
+      const prefix = params.prefix || "";
+
+      // Walk the DTCG tree
+      const parsed: ParsedVariable[] = [];
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      walkDtcgTree(params.tokens, [], prefix, undefined, parsed, errors, warnings);
+
+      if (parsed.length === 0 && errors.length === 0) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({ error: "No DTCG tokens found. Ensure the input has leaf nodes with $value fields." }),
+          }],
+        };
+      }
+
+      // Build create_variables payloads in batches
+      const batches: Array<{
+        collection: string;
+        modes: string[];
+        variables: Array<{
+          name: string;
+          type: FigmaVariableType;
+          scopes: string[];
+          values: Record<string, unknown>;
+        }>;
+      }> = [];
+
+      for (let i = 0; i < parsed.length; i += batchSize) {
+        const chunk = parsed.slice(i, i + batchSize);
+        const variables = chunk.map((v) => {
+          const values: Record<string, unknown> = {};
+          for (const mode of modes) {
+            values[mode] = v.value;
+          }
+          return { name: v.name, type: v.type, scopes: v.scopes, values };
+        });
+        batches.push({ collection, modes, variables });
+      }
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            totalVariables: parsed.length,
+            totalBatches: batches.length,
+            batchSize,
+            ...(errors.length > 0 && { errors }),
+            ...(warnings.length > 0 && { warnings }),
+            batches,
+          }),
+        }],
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error preparing variables: ${error instanceof Error ? error.message : String(error)}`,
+        }],
+      };
+    }
+  },
+);
+
 // Create Styles Tool — create paint, text, effect, and grid styles in batch
 server.tool(
   "create_styles",
