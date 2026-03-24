@@ -207,13 +207,15 @@ Categories are only included in the response when annotations are found. To disc
 // Set Annotation Tool
 server.tool(
   "set_annotation",
-  "Create or update an annotation",
+  "Create or update an annotation on a node. If annotationIndex is provided, replaces the annotation at that position (0-based). If omitted and the node already has annotations, replaces the first one. If the node has no annotations, adds a new one.",
   {
     nodeId: z.string().describe("The ID of the node to annotate"),
-    annotationId: z
-      .string()
+    annotationIndex: z
+      .number()
+      .int()
+      .nonnegative()
       .optional()
-      .describe("The ID of the annotation to update (if updating existing annotation)"),
+      .describe("0-based index of the annotation to replace. Returned by get_annotations as annotationIndex. If omitted and the node already has annotations, the first one is replaced."),
     labelMarkdown: z.string().describe("The annotation text in markdown format"),
     categoryId: z.string().optional().describe("The ID of the annotation category"),
     properties: z
@@ -225,11 +227,11 @@ server.tool(
       .optional()
       .describe("Additional properties for the annotation"),
   },
-  async ({ nodeId, annotationId, labelMarkdown, categoryId, properties }: any) => {
+  async ({ nodeId, annotationIndex, labelMarkdown, categoryId, properties }: any) => {
     try {
       const result = await sendCommandToFigma("set_annotation", {
         nodeId,
-        annotationId,
+        annotationIndex,
         labelMarkdown,
         categoryId,
         properties,
@@ -267,10 +269,12 @@ server.tool(
           nodeId: z.string().describe("The ID of the node to annotate"),
           labelMarkdown: z.string().describe("The annotation text in markdown format"),
           categoryId: z.string().optional().describe("The ID of the annotation category"),
-          annotationId: z
-            .string()
+          annotationIndex: z
+            .number()
+            .int()
+            .nonnegative()
             .optional()
-            .describe("The ID of the annotation to update (if updating existing annotation)"),
+            .describe("0-based index of the annotation to replace (from get_annotations). If omitted, replaces the first existing annotation or adds a new one."),
           properties: z
             .array(
               z.object({
