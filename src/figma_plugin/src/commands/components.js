@@ -151,6 +151,42 @@ export async function importLibraryComponent(params) {
 
   const instance = imported.createInstance();
 
+  // Load fonts for all TEXT nodes in the imported component before reparenting.
+  // Without this, appending to a parentNodeId fails on components containing text.
+  if (parentNodeId) {
+    const fontsToLoad = new Set();
+    const collectFonts = (node) => {
+      if (node.type === "TEXT") {
+        const len = node.characters ? node.characters.length : 0;
+        if (len > 0) {
+          for (let i = 0; i < len; i++) {
+            const font = node.getRangeFontName(i, i + 1);
+            if (font && typeof font !== "symbol") {
+              fontsToLoad.add(font.family + "::" + font.style);
+            }
+          }
+        } else if (node.fontName && typeof node.fontName !== "symbol") {
+          fontsToLoad.add(node.fontName.family + "::" + node.fontName.style);
+        }
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          collectFonts(child);
+        }
+      }
+    };
+    collectFonts(instance);
+
+    if (fontsToLoad.size > 0) {
+      const fontPromises = [];
+      for (const key of fontsToLoad) {
+        const parts = key.split("::");
+        fontPromises.push(figma.loadFontAsync({ family: parts[0], style: parts[1] }));
+      }
+      await Promise.all(fontPromises);
+    }
+  }
+
   if (position) {
     instance.x = position.x;
     instance.y = position.y;
