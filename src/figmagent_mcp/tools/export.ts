@@ -9,7 +9,7 @@ server.tool(
   {
     nodeId: z.string().describe("The ID of the node to export"),
     format: z.enum(["PNG", "JPG", "SVG", "PDF"]).optional().describe("Export format"),
-    scale: z.number().positive().optional().describe("Export scale"),
+    scale: z.coerce.number().positive().optional().describe("Export scale"),
   },
   async ({ nodeId, format, scale }: any) => {
     try {

@@ -16,7 +16,7 @@ Use this to discover the design system before applying styles/tokens with the ap
 Works on any Figma plan — no Enterprise required.`,
   {
     maxOutputChars: z
-      .number()
+      .coerce.number()
       .int()
       .min(1000)
       .optional()

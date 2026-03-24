@@ -43,13 +43,13 @@ Severity levels:
       .optional()
       .describe("Filter to specific properties. Default: all lintable properties."),
     threshold: z
-      .number()
+      .coerce.number()
       .min(0)
       .max(20)
       .default(5.0)
       .describe("Color distance threshold (deltaE) for near_match suggestions. Default: 5.0"),
     maxIssues: z
-      .number()
+      .coerce.number()
       .min(1)
       .max(1000)
       .default(200)
