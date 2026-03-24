@@ -20,8 +20,8 @@ For large design systems, use filtering params to reduce output:
 - styleType: filter styles to specific type(s): "colors", "texts", "effects", "grids"
 - includeVariables/includeStyles: skip entire sections (omitted keys are absent from the response, not null)`,
   {
-    maxOutputChars: z
-      .coerce.number()
+    maxOutputChars: z.coerce
+      .number()
       .int()
       .min(1000)
       .optional()
@@ -29,14 +29,18 @@ For large design systems, use filtering params to reduce output:
     collection: z
       .union([z.string().min(1), z.array(z.string().min(1))])
       .optional()
-      .describe("Filter variables to specific collection name(s). String or array of strings. Ignored when includeVariables is false."),
+      .describe(
+        "Filter variables to specific collection name(s). String or array of strings. Ignored when includeVariables is false.",
+      ),
     styleType: z
       .union([
         z.enum(["colors", "texts", "effects", "grids"]),
         z.array(z.enum(["colors", "texts", "effects", "grids"])),
       ])
       .optional()
-      .describe('Filter styles to specific type(s): "colors", "texts", "effects", "grids". String or array of strings.'),
+      .describe(
+        'Filter styles to specific type(s): "colors", "texts", "effects", "grids". String or array of strings.',
+      ),
     includeVariables: z
       .boolean()
       .optional()
@@ -282,7 +286,12 @@ export function hexToRgba(hex: string): { r: number; g: number; b: number; a: nu
   const g = Number.parseInt(h.slice(2, 4), 16) / 255;
   const b = Number.parseInt(h.slice(4, 6), 16) / 255;
   const a = h.length === 8 ? Number.parseInt(h.slice(6, 8), 16) / 255 : 1;
-  return { r: Math.round(r * 1000) / 1000, g: Math.round(g * 1000) / 1000, b: Math.round(b * 1000) / 1000, a: Math.round(a * 1000) / 1000 };
+  return {
+    r: Math.round(r * 1000) / 1000,
+    g: Math.round(g * 1000) / 1000,
+    b: Math.round(b * 1000) / 1000,
+    a: Math.round(a * 1000) / 1000,
+  };
 }
 
 type FigmaVariableType = "COLOR" | "FLOAT" | "STRING" | "BOOLEAN";
@@ -294,9 +303,7 @@ interface ParsedVariable {
   scopes: string[];
 }
 
-type ConvertResult =
-  | { ok: true; value: unknown; warning?: string }
-  | { ok: false; error: string };
+type ConvertResult = { ok: true; value: unknown; warning?: string } | { ok: false; error: string };
 
 export function dtcgTypeToFigma(dtcgType: string): FigmaVariableType {
   switch (dtcgType) {
@@ -324,7 +331,10 @@ export function convertValue(dtcgType: string, value: unknown): ConvertResult {
   switch (dtcgType) {
     case "color": {
       if (typeof value === "string" && value.startsWith("{") && value.endsWith("}")) {
-        return { ok: false, error: `Alias "${value}" cannot be resolved — provide resolved values or use create_variables with alias references directly` };
+        return {
+          ok: false,
+          error: `Alias "${value}" cannot be resolved — provide resolved values or use create_variables with alias references directly`,
+        };
       }
       if (typeof value === "string" && value.startsWith("#")) {
         return { ok: true, value: hexToRgba(value) };
@@ -344,7 +354,11 @@ export function convertValue(dtcgType: string, value: unknown): ConvertResult {
         const remMatch = value.match(/^([\d.]+)rem$/i);
         if (remMatch) {
           const px = Number.parseFloat(remMatch[1]) * 16;
-          return { ok: true, value: px, warning: `"${value}" converted assuming 1rem=16px (→${px}px); verify if your base font size differs` };
+          return {
+            ok: true,
+            value: px,
+            warning: `"${value}" converted assuming 1rem=16px (→${px}px); verify if your base font size differs`,
+          };
         }
         const num = Number.parseFloat(value);
         if (Number.isNaN(num)) return { ok: false, error: `Cannot parse "${value}" as a number` };
@@ -358,7 +372,10 @@ export function convertValue(dtcgType: string, value: unknown): ConvertResult {
     }
     default: {
       if (typeof value === "object" && value !== null) {
-        return { ok: false, error: `Composite $type "${dtcgType}" has an object value — cannot be represented as a single Figma variable` };
+        return {
+          ok: false,
+          error: `Composite $type "${dtcgType}" has an object value — cannot be represented as a single Figma variable`,
+        };
       }
       return { ok: true, value: typeof value === "string" ? value : String(value) };
     }
@@ -371,7 +388,8 @@ export function inferScopes(path: string, figmaType: FigmaVariableType): string[
   if (figmaType === "COLOR") {
     if (lower.includes("stroke")) return ["STROKE_COLOR"];
     if (lower.includes("text") || lower.includes("font-color") || lower.includes("foreground")) return ["TEXT_FILL"];
-    if (lower.includes("fill") || lower.includes("background") || lower.includes("bg") || lower.includes("surface")) return ["ALL_FILLS"];
+    if (lower.includes("fill") || lower.includes("background") || lower.includes("bg") || lower.includes("surface"))
+      return ["ALL_FILLS"];
     if (lower.includes("effect") || lower.includes("shadow")) return ["EFFECT_COLOR"];
     if (lower.includes("border")) return ["STROKE_COLOR"];
     return ["ALL_FILLS"];
@@ -386,7 +404,8 @@ export function inferScopes(path: string, figmaType: FigmaVariableType): string[
     if (lower.includes("font-weight") || lower.includes("fontweight")) return ["FONT_WEIGHT"];
     if (lower.includes("line-height") || lower.includes("lineheight")) return ["LINE_HEIGHT"];
     if (lower.includes("letter-spacing") || lower.includes("letterspacing")) return ["LETTER_SPACING"];
-    if (lower.includes("stroke") || lower.includes("border-width") || lower.includes("border/width")) return ["STROKE_FLOAT"];
+    if (lower.includes("stroke") || lower.includes("border-width") || lower.includes("border/width"))
+      return ["STROKE_FLOAT"];
     if (lower.includes("size") || lower.includes("width") || lower.includes("height")) return ["WIDTH_HEIGHT"];
     return ["ALL_SCOPES"];
   }
@@ -462,22 +481,12 @@ Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORN
   {
     tokens: z
       .record(z.string(), z.any())
-      .describe("DTCG JSON object with $value/$type entries (can be deeply nested). Top-level keys become path prefixes."),
-    collectionName: z
-      .string()
-      .optional()
-      .describe("Name for the Figma variable collection. Default: 'Tokens'"),
-    modes: z
-      .array(z.string())
-      .optional()
-      .describe("Mode names for the collection. Default: ['Default']"),
-    batchSize: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .optional()
-      .describe("Variables per batch payload. Default: 25"),
+      .describe(
+        "DTCG JSON object with $value/$type entries (can be deeply nested). Top-level keys become path prefixes.",
+      ),
+    collectionName: z.string().optional().describe("Name for the Figma variable collection. Default: 'Tokens'"),
+    modes: z.array(z.string()).optional().describe("Mode names for the collection. Default: ['Default']"),
+    batchSize: z.coerce.number().int().min(1).max(100).optional().describe("Variables per batch payload. Default: 25"),
     prefix: z
       .string()
       .optional()
@@ -504,10 +513,14 @@ Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORN
 
       if (parsed.length === 0 && errors.length === 0) {
         return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({ error: "No DTCG tokens found. Ensure the input has leaf nodes with $value fields." }),
-          }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "No DTCG tokens found. Ensure the input has leaf nodes with $value fields.",
+              }),
+            },
+          ],
         };
       }
 
@@ -536,24 +549,28 @@ Scopes are inferred from path segments (e.g. "fill"→ALL_FILLS, "radius"→CORN
       }
 
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            totalVariables: parsed.length,
-            totalBatches: batches.length,
-            batchSize,
-            ...(errors.length > 0 && { errors }),
-            ...(warnings.length > 0 && { warnings }),
-            batches,
-          }),
-        }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              totalVariables: parsed.length,
+              totalBatches: batches.length,
+              batchSize,
+              ...(errors.length > 0 && { errors }),
+              ...(warnings.length > 0 && { warnings }),
+              batches,
+            }),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: "text",
-          text: `Error preparing variables: ${error instanceof Error ? error.message : String(error)}`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `Error preparing variables: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
       };
     }
   },

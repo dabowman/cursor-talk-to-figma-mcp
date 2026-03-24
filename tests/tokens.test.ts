@@ -210,18 +210,12 @@ describe("walkDtcgTree", () => {
   });
 
   test("strips prefix at segment boundary", () => {
-    const { parsed } = walk(
-      { figma: { color: { $type: "color", primary: { $value: "#FF0000" } } } },
-      "figma",
-    );
+    const { parsed } = walk({ figma: { color: { $type: "color", primary: { $value: "#FF0000" } } } }, "figma");
     expect(parsed[0].name).toBe("color/primary");
   });
 
   test("does NOT strip prefix mid-segment", () => {
-    const { parsed } = walk(
-      { colorful: { primary: { $type: "color", $value: "#FF0000" } } },
-      "col",
-    );
+    const { parsed } = walk({ colorful: { primary: { $type: "color", $value: "#FF0000" } } }, "col");
     // "col" is not a complete segment of "colorful", so name should be unchanged
     expect(parsed[0].name).toBe("colorful/primary");
   });

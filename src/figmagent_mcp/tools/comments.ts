@@ -215,7 +215,9 @@ server.tool(
       .int()
       .nonnegative()
       .optional()
-      .describe("0-based index of the annotation to replace. Returned by get_annotations as annotationIndex. If omitted and the node already has annotations, the first one is replaced."),
+      .describe(
+        "0-based index of the annotation to replace. Returned by get_annotations as annotationIndex. If omitted and the node already has annotations, the first one is replaced.",
+      ),
     labelMarkdown: z.string().describe("The annotation text in markdown format"),
     categoryId: z.string().optional().describe("The ID of the annotation category"),
     properties: z
@@ -274,7 +276,9 @@ server.tool(
             .int()
             .nonnegative()
             .optional()
-            .describe("0-based index of the annotation to replace (from get_annotations). If omitted, replaces the first existing annotation or adds a new one."),
+            .describe(
+              "0-based index of the annotation to replace (from get_annotations). If omitted, replaces the first existing annotation or adds a new one.",
+            ),
           properties: z
             .array(
               z.object({

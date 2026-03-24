@@ -48,9 +48,13 @@ Use \`find\` to locate nodes, then \`get\` for details on specific matches.`,
       .optional()
       .default(true)
       .describe("When searching by componentId, skip matches inside those component definitions (default: true)"),
-    maxResults: z.coerce.number().optional().default(200).describe("Maximum number of matches to return (default: 200)"),
-    maxOutputChars: z
-      .coerce.number()
+    maxResults: z.coerce
+      .number()
+      .optional()
+      .default(200)
+      .describe("Maximum number of matches to return (default: 200)"),
+    maxOutputChars: z.coerce
+      .number()
       .int()
       .min(1000)
       .optional()

@@ -1,6 +1,13 @@
 // Document, selection, node info, and export commands
 
-import { filterFigmaNode, sendProgressUpdate, generateCommandId, customBase64Encode, rgbaToHex, toNumber } from "../helpers.js";
+import {
+  filterFigmaNode,
+  sendProgressUpdate,
+  generateCommandId,
+  customBase64Encode,
+  rgbaToHex,
+  toNumber,
+} from "../helpers.js";
 
 export async function getDocumentInfo() {
   await figma.currentPage.loadAsync();
@@ -439,7 +446,8 @@ async function buildNodeOutput(n, detail, inclVars, inclStyles, inclComp, collVa
 export async function getNodeTree(params) {
   const nodeId = params && params.nodeId ? params.nodeId : null;
   const detail = params && params.detail ? params.detail : "layout";
-  const userDepth = params && params.depth !== undefined && params.depth !== null ? toNumber(params.depth, undefined) : undefined;
+  const userDepth =
+    params && params.depth !== undefined && params.depth !== null ? toNumber(params.depth, undefined) : undefined;
   const filter = params && params.filter ? params.filter : {};
   const visibleOnly = filter.visibleOnly !== false;
   const typeWhitelist = filter.types && filter.types.length > 0 ? filter.types : null;
