@@ -286,6 +286,82 @@ server.tool(
   },
 );
 
+// --- Tool 3b: import_library_components (batch) ---
+
+server.tool(
+  "import_library_components",
+  "Batch import multiple published components from a Figma library. Each item specifies a componentKey and optional parentNodeId, position, and name. All imports run in parallel. Use this instead of repeated import_library_component calls.",
+  {
+    components: z
+      .array(
+        z.object({
+          componentKey: z
+            .string()
+            .describe("The published key of an individual component (not a component set)."),
+          parentNodeId: z
+            .string()
+            .optional()
+            .describe("Node ID of the parent frame to insert the instance into."),
+          position: z
+            .object({
+              x: z.number(),
+              y: z.number(),
+            })
+            .optional()
+            .describe("Position for the new instance."),
+          name: z.string().optional().describe("Override the instance layer name."),
+        }),
+      )
+      .min(1)
+      .describe("Array of components to import."),
+  },
+  async ({ components }: any) => {
+    try {
+      const results = await Promise.all(
+        components.map(async (comp: any, idx: number) => {
+          try {
+            const result = await sendCommandToFigma("import_library_component", {
+              componentKey: comp.componentKey,
+              parentNodeId: comp.parentNodeId,
+              position: comp.position,
+              name: comp.name,
+            });
+            return { index: idx, success: true, ...result };
+          } catch (err: any) {
+            return {
+              index: idx,
+              success: false,
+              componentKey: comp.componentKey,
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
+        }),
+      );
+
+      const succeeded = results.filter((r: any) => r.success).length;
+      const failed = results.filter((r: any) => !r.success).length;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ total: results.length, succeeded, failed, results }),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error batch importing library components: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
 // --- Tool 4: get_component_variants ---
 
 server.tool(
