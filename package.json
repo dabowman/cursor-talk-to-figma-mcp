@@ -15,7 +15,7 @@
     "transcribe": "claude-code-transcripts all -s ~/.claude/projects/-Users-davidbowman-Github-cursor-talk-to-figma-mcp -o ~/Github/cursor-talk-to-figma-mcp/.claude/transcripts --include-agents",
     "extract-sessions": "bun scripts/extract-sessions.ts"
   },
-  "devDependencies": {
+  "devDependencies": { 
     "@biomejs/biome": "^2.4.6",
     "@types/bun": "latest",
     "bun-types": "^1.3.10",

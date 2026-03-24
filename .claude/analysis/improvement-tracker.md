@@ -1,7 +1,7 @@
 # Figmagent Improvement Tracker
 
-Last updated: 2026-03-16
-Sessions analyzed: 17
+Last updated: 2026-03-23
+Sessions analyzed: 19
 
 ## Active Issues
 
@@ -67,9 +67,9 @@ Sessions analyzed: 17
 - **Priority**: P1
 - **Category**: infrastructure
 - **First seen**: Session 1 (2026-03-05)
-- **Sessions affected**: 1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 15, 16, 17
+- **Sessions affected**: 1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 15, 16, 17, 18, 19
 - **Estimated savings**: ~20-33 calls/session (long sessions), ~2-8 calls/session (short sessions)
-- **Description**: Agent rediscovers same tools repeatedly. 33 calls in session 1 (10.7%), 28 in session 2 (7.2%), 35 in session 5 (13.5%), 8 in session 4 (14.3%), 3 in session 6 (4.4%), 2 in session 7 (8.3%), 7 in session 9 (43.8% — worst ratio, dominated a short exploration session). Worst after reconnections or in short sessions where overhead ratio is high.
+- **Description**: Agent rediscovers same tools repeatedly. 33 calls in session 1 (10.7%), 28 in session 2 (7.2%), 35 in session 5 (13.5%), 8 in session 4 (14.3%), 3 in session 6 (4.4%), 2 in session 7 (8.3%), 7 in session 9 (43.8% — worst ratio). Session 18: only 6 calls (2.2%) — best ratio. Session 19: 7 calls (15.2%) — short session with high ratio. Worst after reconnections or in short sessions where overhead ratio is high.
 - **Proposed fix**: Pre-load tool schemas at session start; auto-restore after reconnections; add complete tool reference to skill file.
 
 ### [AGENT-001] Fail fast on repeated identical errors
@@ -108,8 +108,8 @@ Sessions analyzed: 17
 - **Priority**: P2
 - **Category**: infrastructure
 - **First seen**: Session 1 (2026-03-05)
-- **Sessions affected**: 1, 2, 5, 13, 17
-- **Description**: 8 reconnections in session 1 consuming ~40+ overhead calls. Session 5 had ~8 reconnections (14 `join_channel` calls) over 139 minutes. Session 13 had 3 reconnections (model switch + wrong channel guess + multi-channel). Session 17 had 2 reconnections after ~90 minutes, preceded by 3 consecutive timeouts. Short sessions (4, 6, 7) had zero.
+- **Sessions affected**: 1, 2, 5, 13, 17, 18
+- **Description**: 8 reconnections in session 1 consuming ~40+ overhead calls. Session 5 had ~8 reconnections (14 `join_channel` calls) over 139 minutes. Session 13 had 3 reconnections (model switch + wrong channel guess + multi-channel). Session 17 had 2 reconnections after ~90 minutes, preceded by 3 consecutive timeouts. Session 18 had 14 reconnections in a 10-minute burst — all triggered by `import_library_component` timeouts on complex Block Editor components (slow operation, not actual connection loss). Short sessions (4, 6, 7) had zero.
 - **Current status**: Auto-join improved for short sessions. Long sessions (>1hr) still experience WebSocket drops requiring manual `join_channel`. Each reconnection triggers ToolSearch re-discovery overhead.
 - **Verified in**: Sessions 4, 6, 7 — zero reconnections in short sessions.
 
@@ -284,32 +284,32 @@ Sessions analyzed: 17
 
 ### [TOOL-012] Batch `import_library_component` — [#19](https://github.com/dabowman/Figmagent/issues/19)
 - **Status**: identified
-- **Priority**: P1
+- **Priority**: P0
 - **Category**: missing-batch-tool
 - **First seen**: Session 15 (2026-03-16)
-- **Sessions affected**: 15
-- **Estimated savings**: ~32 calls/session
-- **Description**: 33 sequential `import_library_component` calls to import library components. No batch variant exists.
-- **Proposed fix**: Add `import_library_components` (plural) accepting array of component keys.
+- **Sessions affected**: 15, 18
+- **Estimated savings**: ~68 calls/session
+- **Description**: 33 sequential calls in session 15, 76 calls in session 18 (27% of all calls). No batch variant exists. Session 18 had runs of 34 consecutive imports.
+- **Proposed fix**: Add `import_library_components` (plural) accepting array of component keys. Chunked execution in plugin (10 per batch) with progress updates.
 
 ### [BUG-004] Font loading bug in `import_library_component` with `parentNodeId` — [#20](https://github.com/dabowman/Figmagent/issues/20)
 - **Status**: identified
-- **Priority**: P1
+- **Priority**: P0
 - **Category**: plugin-bug
 - **First seen**: Session 15 (2026-03-16)
-- **Sessions affected**: 15
-- **Estimated savings**: ~36 calls (clone-reparent workaround)
-- **Description**: `import_library_component` with `parentNodeId` fails on components containing TEXT nodes — fonts are not loaded before the import. Agent had to work around with clone + reparent, costing 36 extra calls.
+- **Sessions affected**: 15, 18
+- **Estimated savings**: ~88 calls (clone-reparent workaround)
+- **Description**: `import_library_component` with `parentNodeId` fails on components containing TEXT nodes — fonts are not loaded before the import. Session 15: 36 extra calls. Session 18: 82 `clone_and_modify` + 6 `delete_multiple_nodes` = 88 calls solely for reparenting because direct insertion fails.
 - **Fix pattern**: sync-to-async (load fonts before inserting)
 
 ### [TOOL-013] Batch `get_component_variants` — [#21](https://github.com/dabowman/Figmagent/issues/21)
 - **Status**: identified
-- **Priority**: P2
+- **Priority**: P1
 - **Category**: missing-batch-tool
 - **First seen**: Session 15 (2026-03-16)
-- **Sessions affected**: 15
-- **Estimated savings**: ~20 calls/session
-- **Description**: 24 sequential `get_component_variants` calls. 9 were for components that were never imported (wasted discovery).
+- **Sessions affected**: 15, 18
+- **Estimated savings**: ~43 calls/session
+- **Description**: 24 sequential calls in session 15. 48 sequential calls in session 18 (two bursts of 24 and 22 consecutive). All using the same fileKey.
 
 ### [BUG-005] `get_node_info` type coercion — depth as string — [#22](https://github.com/dabowman/Figmagent/issues/22)
 - **Status**: identified
@@ -347,7 +347,7 @@ Sessions analyzed: 17
 - **Priority**: P1
 - **Category**: missing-tool
 - **First seen**: Session 17 (2026-03-16)
-- **Sessions affected**: 17
+- **Sessions affected**: 17, 19
 - **Estimated savings**: ~4 calls per large-design-system session
 - **Description**: With 540+ variables and 18 styles, `get_design_system` output was 95-110K chars — exceeding both the 30K default budget and MCP infrastructure limits. Agent needed 9 calls (3 timeouts, 1 rejection, 2 truncated, 3 succeeded) to get useful data, then fell back to Bash parsing of the dumped file.
 - **Proposed fix**: Add filtering parameters: `collection` (filter by collection name), `type` ("variables" or "styles" only), `namePattern` (regex filter on variable/style names). This lets agents query subsets instead of the entire design system.
@@ -381,6 +381,46 @@ Sessions analyzed: 17
 - **Estimated savings**: ~18 Bash calls per token-import session
 - **Description**: Agent wrote 22 Bash/Node scripts for hex→RGBA conversion, DTCG JSON parsing, alias resolution, and batch chunking. Many were incremental iterations on the same logic. No reusable utility exists.
 - **Proposed fix**: Create a `prepare-figma-variables` script or MCP tool that reads DTCG-format JSON files and outputs `create_variables` payloads with automatic hex→RGBA conversion, alias resolution via ID map, and batching (25 vars per batch).
+
+### [BUG-008] Import timeout responses not flagged as errors
+- **Status**: identified
+- **Priority**: P2
+- **Category**: plugin-bug
+- **First seen**: Session 18 (2026-03-23)
+- **Sessions affected**: 18
+- **Estimated savings**: faster agent error detection
+- **Description**: `import_library_component` timeout responses return `is_error: false` with content `"Error importing library component: Request to Figma timed out"`. Agent must parse the content string to detect the timeout. MCP server should set `is_error: true` for timeout responses so agents can distinguish timeouts from successful imports programmatically.
+- **Fix pattern**: Set `is_error: true` in the MCP server's timeout handling path.
+
+### [AGENT-014] Reconnection loop on slow operations vs actual disconnections
+- **Status**: identified
+- **Priority**: P1
+- **Category**: agent-behavior
+- **First seen**: Session 18 (2026-03-23)
+- **Sessions affected**: 18
+- **Estimated savings**: ~14 calls per occurrence
+- **Description**: Agent reconnected 14 times in 10 minutes during `import_library_component` timeouts on complex Block Editor components. Each reconnection succeeded immediately, proving the connection was fine — the operation was just slow. Agent should distinguish: if `join_channel` succeeds instantly after a timeout, the connection is not lost; the previous operation was slow. After 3 timeout+successful-reconnect cycles on the same operation type, skip that component and try others, or increase the per-call timeout expectation.
+- **Proposed fix**: Add to CLAUDE.md/agent prompts: "If join_channel succeeds immediately after a timeout, the connection is healthy — the operation is slow. After 3 such cycles, skip and retry later instead of reconnecting again."
+
+### [TOOL-015] `apply` cornerRadius variable binding should expand to all corners
+- **Status**: identified
+- **Priority**: P2
+- **Category**: missing-tool
+- **First seen**: Session 19 (2026-03-19)
+- **Sessions affected**: 19
+- **Estimated savings**: ~1 call per component with corner radius tokens
+- **Description**: `apply` with `variables: { cornerRadius: "VariableID:..." }` only binds `topLeftRadius`. To bind all four corners, the agent must make a second call with `topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius` individually. The tool should auto-expand `cornerRadius` to all four corners.
+- **Proposed fix**: In plugin `apply.js`, when `variables.cornerRadius` is set, bind it to all four individual corner radius properties (`topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius`).
+
+### [AGENT-015] Prefer Figma API variable IDs over local config files
+- **Status**: identified
+- **Priority**: P2
+- **Category**: agent-behavior
+- **First seen**: Session 19 (2026-03-19)
+- **Sessions affected**: 19
+- **Estimated savings**: ~2 calls per occurrence
+- **Description**: Agent read variable IDs from the project's `config/figma-variables.json` (VariableID:30:xxx) which didn't match the live Figma file (VariableID:1:xxx). The `get` tool's FSGN `defs.vars` already contained the correct IDs. Agent should prefer IDs from Figma API responses over local config files.
+- **Proposed fix**: Add to agent workflow: "Always use variable IDs from Figma API responses (get defs.vars, get_design_system) rather than local mapping files, which may use different ID schemes."
 
 ## Resolved Issues
 
@@ -450,6 +490,8 @@ Sessions analyzed: 17
 | 15 | 2026-03-16 | 137 | 1 | ~25% | 5 (3.6%) | ~38 | 3 | 0 |
 | 16 | 2026-03-16 | 77 | 5 | ~23% | 9 (11.7%) | ~15 | 0 | 0 |
 | 17 | 2026-03-16 | 216* | 10 | ~35% | 14 (14.1%) | ~540 vars + 18 styles + 1 component | 4 | 0 |
+| 18 | 2026-03-23 | 279 | 16 (soft) | ~18% | 6 (2.2%) | 48 library instances + 8 section frames | 2 | 0 |
+| 19 | 2026-03-19 | 46 | 3 | ~22% | 7 (15.2%) | 1 component (5 nodes) | 2 | 0 |
 
 ## Issue Categories
 

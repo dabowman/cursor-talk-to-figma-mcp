@@ -31,15 +31,15 @@ const instructions = `Figmagent bridges AI agents with Figma via a WebSocket rel
 
 ## Available Tools
 
-All 47 tools provided by this server, grouped by domain:
+All 50 tools provided by this server, grouped by domain:
 
 **Reading & Navigation:** get_document_info, get_selection, get, find, scan_text_nodes, scan_nodes_by_types, export_node_as_image
 **Creating:** create
 **Modifying:** apply, move_node, resize_node, rename_node, delete_node, delete_multiple_nodes, clone_node, clone_and_modify, reorder_children
 **Text:** set_text_content, set_multiple_text_contents
 **Components:** get_local_components, combine_as_variants, component_properties, get_instance_overrides, set_instance_overrides
-**Design System:** get_design_system, create_variables, update_variables, create_styles, update_styles
-**Libraries:** get_library_components, search_library_components, import_library_component, get_component_variants, get_library_variables
+**Design System:** get_design_system, create_variables, update_variables, create_styles, update_styles, prepare_figma_variables
+**Libraries:** get_library_components, search_library_components, import_library_component, import_library_components, get_component_variants, get_library_variables
 **Annotations & Comments:** get_annotations, set_annotation, set_multiple_annotations, get_comments, post_comment, delete_comment
 **Linting:** lint_design
 **Connections & Prototyping:** join_channel, get_reactions, set_default_connector, create_connections, set_focus, set_selections
