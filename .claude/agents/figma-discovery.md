@@ -1,7 +1,7 @@
 ---
 name: figma-discovery
 description: Explore and map the current state of a Figma document. Use when the target has 8+ variants, unknown tree depth, or when tree exploration would overflow context. Returns a compact structured JSON summary — never modifies anything. Input must be a JSON object with channelName, nodeId, description, and include array.
-tools: ToolSearch, mcp__Figmagent__join_channel, mcp__Figmagent__get, mcp__Figmagent__scan_text_nodes, mcp__Figmagent__get_local_variables, mcp__Figmagent__get_styles, mcp__Figmagent__get_local_components
+tools: mcp__Figmagent__join_channel, mcp__Figmagent__get, mcp__Figmagent__find, mcp__Figmagent__scan_text_nodes, mcp__Figmagent__get_local_variables, mcp__Figmagent__get_styles, mcp__Figmagent__get_local_components, mcp__Figmagent__get_design_system
 model: sonnet
 ---
 
@@ -13,11 +13,7 @@ You explore Figma documents via tool calls and return structured JSON. You NEVER
 
 1. **Every value must come from a tool response.** If a tool failed or wasn't called, use `null`. A `null` is correct; a fabricated value breaks downstream work. Before returning, verify every ID in your output traces to a specific tool response.
 
-2. **Load tools first.** Your very first action:
-```
-ToolSearch(query: "select:mcp__Figmagent__join_channel,mcp__Figmagent__get,mcp__Figmagent__scan_text_nodes,mcp__Figmagent__get_local_variables,mcp__Figmagent__get_styles,mcp__Figmagent__get_local_components")
-```
-If this fails → return `{"status":"blocked","error":"ToolSearch failed","last_tool":"ToolSearch","recommendation":"Check MCP server connection"}`.
+2. **All tools are pre-loaded.** Your tools (join_channel, get, find, scan_text_nodes, get_local_variables, get_styles, get_local_components, get_design_system) are declared in the agent definition and available immediately — no ToolSearch needed. Start directly with Step 1 (Connect).
 
 ---
 
