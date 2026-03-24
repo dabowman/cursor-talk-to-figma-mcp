@@ -13,7 +13,12 @@ Returns:
 - variables: array of collections, each with modes and variables (id, name, type, values per mode)
 
 Use this to discover the design system before applying styles/tokens with the apply tool.
-Works on any Figma plan — no Enterprise required.`,
+Works on any Figma plan — no Enterprise required.
+
+For large design systems, use filtering params to reduce output:
+- collection: filter variables to specific collection(s) by name (ignored when includeVariables is false)
+- styleType: filter styles to specific type(s): "colors", "texts", "effects", "grids"
+- includeVariables/includeStyles: skip entire sections (omitted keys are absent from the response, not null)`,
   {
     maxOutputChars: z
       .coerce.number()
@@ -21,10 +26,40 @@ Works on any Figma plan — no Enterprise required.`,
       .min(1000)
       .optional()
       .describe("Max response size in characters. Default: 30000. Raise for large design systems."),
+    collection: z
+      .union([z.string().min(1), z.array(z.string().min(1))])
+      .optional()
+      .describe("Filter variables to specific collection name(s). String or array of strings. Ignored when includeVariables is false."),
+    styleType: z
+      .union([
+        z.enum(["colors", "texts", "effects", "grids"]),
+        z.array(z.enum(["colors", "texts", "effects", "grids"])),
+      ])
+      .optional()
+      .describe('Filter styles to specific type(s): "colors", "texts", "effects", "grids". String or array of strings.'),
+    includeVariables: z
+      .boolean()
+      .optional()
+      .describe("Include variables section in response. Default: true. Set false to skip variables entirely."),
+    includeStyles: z
+      .boolean()
+      .optional()
+      .describe("Include styles section in response. Default: true. Set false to skip styles entirely."),
   },
-  async (params: { maxOutputChars?: number }) => {
+  async (params: {
+    maxOutputChars?: number;
+    collection?: string | string[];
+    styleType?: string | string[];
+    includeVariables?: boolean;
+    includeStyles?: boolean;
+  }) => {
     try {
-      const result = await sendCommandToFigma("get_design_system");
+      const filterParams: Record<string, unknown> = {};
+      if (params.collection !== undefined) filterParams.collection = params.collection;
+      if (params.styleType !== undefined) filterParams.styleType = params.styleType;
+      if (params.includeVariables !== undefined) filterParams.includeVariables = params.includeVariables;
+      if (params.includeStyles !== undefined) filterParams.includeStyles = params.includeStyles;
+      const result = await sendCommandToFigma("get_design_system", filterParams);
       const jsonText = JSON.stringify(result);
       const guarded = guardOutput(jsonText, {
         maxChars: params.maxOutputChars,
@@ -32,6 +67,9 @@ Works on any Figma plan — no Enterprise required.`,
         toolName: "get_design_system",
         narrowingHints: [
           "  • This file has a large design system",
+          "  • Use `collection` param to filter variables to specific collection(s)",
+          "  • Use `styleType` param to filter styles to specific type(s)",
+          "  • Use `includeVariables: false` or `includeStyles: false` to skip sections",
           "  • Use find() to locate specific tokens by name or usage",
         ],
       });
